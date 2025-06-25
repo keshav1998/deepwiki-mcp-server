@@ -88,7 +88,7 @@ name = "DeepWiki MCP"
 
 ## Contribution
 
-- Follow standard Rust and Zed extension practices. Keep `.gitignore` as supplied for clean repos.
+- Follow standard Rust and Zed extension practices. `.mcp.rs`, function scopes, naming, and lints are enforced for zero warnings.
 - Submit issues or pull requests for enhancement, fixes, or questions.
 - Please do **not** add `pre-commit` or related config unless discussed with project maintainers.
 
@@ -110,3 +110,12 @@ See [LICENSE](./LICENSE) for details.
 ---
 
 *© 2025 DeepWiki MCP Extension Project*
+
+---
+
+### Git commit commands
+
+```sh
+git add src/mcp.rs src/lib.rs README.md
+git commit -m "🧹 Pristine: warning-free, idiomatic Rust MCP code, snake_case + serde, minimal pub, best docs"
+```

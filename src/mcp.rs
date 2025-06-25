@@ -30,18 +30,21 @@ pub struct ToolSchema {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // Allow extra fields or future-constructed fields
 pub struct ToolAnnotations {
     pub title: Option<String>,
-    pub readOnlyHint: Option<bool>,
-    pub destructiveHint: Option<bool>,
-    pub idempotentHint: Option<bool>,
-    pub openWorldHint: Option<bool>,
+    pub read_only_hint: Option<bool>,
+    pub destructive_hint: Option<bool>,
+    pub idempotent_hint: Option<bool>,
+    pub open_world_hint: Option<bool>,
 }
 
 // -- Stub Handlers -----------------------------------------------------------
 
 /// Returns all available tools (for /tools/list)
-pub async fn list_tools() -> Vec<ToolSchema> {
+#[allow(dead_code)]
+pub(crate) async fn list_tools() -> Vec<ToolSchema> {
     vec![
         ToolSchema {
             name: "read_wiki_structure".to_string(),
@@ -55,10 +58,10 @@ pub async fn list_tools() -> Vec<ToolSchema> {
             }),
             annotations: Some(ToolAnnotations {
                 title: Some("Read Wiki Structure".to_string()),
-                readOnlyHint: Some(true),
-                destructiveHint: None,
-                idempotentHint: Some(true),
-                openWorldHint: Some(false),
+                read_only_hint: Some(true),
+                destructive_hint: None,
+                idempotent_hint: Some(true),
+                open_world_hint: Some(false),
             }),
         },
         ToolSchema {
@@ -73,10 +76,10 @@ pub async fn list_tools() -> Vec<ToolSchema> {
             }),
             annotations: Some(ToolAnnotations {
                 title: Some("Read Wiki Contents".to_string()),
-                readOnlyHint: Some(true),
-                destructiveHint: None,
-                idempotentHint: Some(true),
-                openWorldHint: Some(false),
+                read_only_hint: Some(true),
+                destructive_hint: None,
+                idempotent_hint: Some(true),
+                open_world_hint: Some(false),
             }),
         },
         ToolSchema {
@@ -92,17 +95,18 @@ pub async fn list_tools() -> Vec<ToolSchema> {
             }),
             annotations: Some(ToolAnnotations {
                 title: Some("Ask Question".to_string()),
-                readOnlyHint: Some(true),
-                destructiveHint: None,
-                idempotentHint: None,
-                openWorldHint: None,
+                read_only_hint: Some(true),
+                destructive_hint: None,
+                idempotent_hint: None,
+                open_world_hint: None,
             }),
         },
     ]
 }
 
 /// Executes a tool by name with the given arguments (for /tools/call)
-pub async fn call_tool(
+#[allow(dead_code)]
+pub(crate) async fn call_tool(
     tool_name: &str,
     arguments: serde_json::Value,
 ) -> Result<serde_json::Value, MCPError> {
@@ -157,6 +161,7 @@ pub async fn call_tool(
 
 /// Top-level error type for MCP tool/call handling
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum MCPError {
     /// Tool not implemented in server.
     NotImplemented,

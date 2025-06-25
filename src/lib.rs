@@ -5,6 +5,8 @@
 //! from the Zed editor context. Uses Zed config and [context_servers] settings for endpoint
 //! orchestration. For full integration/testing details, see README and configuration docs.
 
+pub mod mcp;
+
 use zed_extension_api::{self as zed, Command, ContextServerId, Project, Result};
 
 /// Marker extension struct for Zed registration.
