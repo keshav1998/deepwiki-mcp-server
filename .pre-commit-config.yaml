@@ -1,0 +1,37 @@
+# .pre-commit-config.yaml
+# Pre-commit hooks for ensuring Rust code quality on each commit.
+# Run `pre-commit install` after adding this file.
+
+repos:
+  - repo: https://github.com/rust-lang/rustfmt
+    rev: "main" # Verified latest as of 2025-06-25T19:18:22Z
+    hooks:
+      - id: rustfmt
+        name: rustfmt
+        language: rust
+        entry: cargo fmt --all -- --check
+        types: [rust]
+        pass_filenames: false
+
+  - repo: https://github.com/nbraud/rust-clippy-pre-commit
+    rev: v0.5.0 # Latest verified as of 2025-06-25T19:18:22Z
+    hooks:
+      - id: rust-clippy
+        name: rust-clippy
+        language: rust
+        entry: cargo clippy --all-targets -- -D warnings
+        types: [rust]
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: cargo-test
+        name: cargo-test
+        entry: cargo test --workspace --all-features
+        language: system
+        types: [rust]
+        pass_filenames: false
+        always_run: true
+# Optional:
+# You may want to add a hook to check for unresolved TODOs or fixmes.
+# Or, use pre-commit's built-in trailing-whitespace/yaml checks for hygiene.

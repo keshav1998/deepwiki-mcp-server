@@ -1,0 +1,41 @@
+# Rust/Cargo standard
+/target/
+**/*.rs.bk
+**/target/
+debug/
+Cargo.lock
+
+# Platform
+.DS_Store
+*.swp
+*.swo
+*.tmp
+*.log
+
+# Editor/IDE
+.idea/
+.vscode/
+*.iml
+tags
+
+# Build/test/output artifacts
+/dist/
+**/dist/
+coverage/
+coverage/*
+/tests/output/
+test-output/
+test-*
+bench-*
+output*
+
+# Node/Python hybrid project pattern
+/node_modules/
+venv/
+
+# Zed project specifics
+/.zed/*
+!.zed/*.rules
+
+# Ignore plan.rules everywhere
+plan.rules
