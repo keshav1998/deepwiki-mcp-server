@@ -42,8 +42,63 @@ pub struct ToolAnnotations {
 
 /// Returns all available tools (for /tools/list)
 pub async fn list_tools() -> Vec<ToolSchema> {
-    // TODO: Populate with actual supported tools for your MCP server.
-    vec![]
+    vec![
+        ToolSchema {
+            name: "read_wiki_structure".to_string(),
+            description: Some("Get a list of documentation topics for a GitHub repository".to_string()),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "repoName": { "type": "string" }
+                },
+                "required": ["repoName"]
+            }),
+            annotations: Some(ToolAnnotations {
+                title: Some("Read Wiki Structure".to_string()),
+                readOnlyHint: Some(true),
+                destructiveHint: None,
+                idempotentHint: Some(true),
+                openWorldHint: Some(false),
+            }),
+        },
+        ToolSchema {
+            name: "read_wiki_contents".to_string(),
+            description: Some("View documentation about a GitHub repository".to_string()),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "repoName": { "type": "string" }
+                },
+                "required": ["repoName"]
+            }),
+            annotations: Some(ToolAnnotations {
+                title: Some("Read Wiki Contents".to_string()),
+                readOnlyHint: Some(true),
+                destructiveHint: None,
+                idempotentHint: Some(true),
+                openWorldHint: Some(false),
+            }),
+        },
+        ToolSchema {
+            name: "ask_question".to_string(),
+            description: Some("Ask any question about a GitHub repository and get an AI-powered, context-grounded response".to_string()),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "repoName": { "type": "string" },
+                    "question": { "type": "string" }
+                },
+                "required": ["repoName", "question"]
+            }),
+            annotations: Some(ToolAnnotations {
+                title: Some("Ask Question".to_string()),
+                readOnlyHint: Some(true),
+                destructiveHint: None,
+                idempotentHint: None,
+                openWorldHint: None,
+            }),
+        },
+    ]
 }
 
 /// Executes a tool by name with the given arguments (for /tools/call)
@@ -51,8 +106,53 @@ pub async fn call_tool(
     tool_name: &str,
     arguments: serde_json::Value,
 ) -> Result<serde_json::Value, MCPError> {
-    // TODO: Match tool_name, validate args, invoke, stream results/errors.
-    Err(MCPError::NotImplemented)
+    match tool_name {
+        "read_wiki_structure" => {
+            // Validate args
+            let repo_name = arguments
+                .get("repoName")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| MCPError::InvalidArgs("Missing or invalid repoName".to_string()))?;
+            // Stub/mock response structure
+            Ok(serde_json::json!({
+                "topics": [
+                    { "title": "Introduction", "path": "README.md" },
+                    { "title": "Installation", "path": "docs/installation.md" },
+                    { "title": "API Reference", "path": "docs/api.md" }
+                ],
+                "repo": repo_name
+            }))
+        }
+        "read_wiki_contents" => {
+            let repo_name = arguments
+                .get("repoName")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| MCPError::InvalidArgs("Missing or invalid repoName".to_string()))?;
+            // Stub/mock content
+            Ok(serde_json::json!({
+                "repo": repo_name,
+                "content": "# Introduction\nWelcome to your repo docs.\n\n## Usage\nHow to use it goes here..."
+            }))
+        }
+        "ask_question" => {
+            let repo_name = arguments
+                .get("repoName")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| MCPError::InvalidArgs("Missing or invalid repoName".to_string()))?;
+            let question = arguments
+                .get("question")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| MCPError::InvalidArgs("Missing or invalid question".to_string()))?;
+            // Stub/mock answer and sources
+            Ok(serde_json::json!({
+                "answer": format!("Mock answer to '{}'", question),
+                "sources": [
+                    format!("https://github.com/{}/blob/main/README.md", repo_name)
+                ]
+            }))
+        }
+        _ => Err(MCPError::NotImplemented),
+    }
 }
 
 /// Top-level error type for MCP tool/call handling
