@@ -1,0 +1,43 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [main, feat/**, fix/**]
+  pull_request:
+    branches: [main, feat/**, fix/**]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Install dev/test dependencies
+        run: cargo fetch
+
+      - name: Run cargo check (all)
+        run: cargo check --workspace --all-targets --all-features
+
+      - name: Run cargo clippy (all, deny warnings)
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Run cargo test (unit/integration)
+        run: cargo test --workspace --all-features
+
+      - name: Run E2E protocol tests
+        run: cargo test --test protocol
+
+      - name: Upload test results (optional)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: target/debug/deps/*.log
