@@ -32,7 +32,7 @@ mod mcp_protocol_tests {
 
     #[tokio::test]
     async fn test_list_tools_returns_expected_tools() {
-        let tools = list_tools().await;
+        let tools = list_tools().await.unwrap();
         let tool_names: Vec<String> = tools.iter().map(|t| t.name.clone()).collect();
         assert!(tool_names.contains(&"read_wiki_structure".to_string()));
         assert!(tool_names.contains(&"read_wiki_contents".to_string()));
