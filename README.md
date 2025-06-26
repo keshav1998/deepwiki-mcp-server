@@ -99,6 +99,20 @@ name = "DeepWiki MCP"
 
 ---
 
+## Reporting Issues & Using the Issue Template
+
+If you discover a bug or protocol edge case, please:
+
+1. Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) provided in this repository.
+2. Include a clear, minimal reproduction: steps to run your command, sample MCP envelope or error, and environment details.
+3. Double-check your Rust toolchain and MCP backend version.
+4. Indicate whether you are running latest `main` or `develop` branch.
+5. Check for similar issues before filing a new one.
+
+Your contribution helps keep this extension robust for the whole open source community!
+
+---
+
 ## Setup & Testing
 
 To contribute or validate a build:
