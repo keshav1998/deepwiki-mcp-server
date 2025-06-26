@@ -54,7 +54,7 @@ fn test_call_read_wiki_structure_success() {
     let assert = cmd
         .assert()
         .success()
-        .stdout(predicate::str::contains(r#""result":{"repo":"foo/bar""#));
+        .stdout(predicate::str::contains(r#""repo":"foo/bar""#));
     let output = String::from_utf8_lossy(&assert.get_output().stdout).into_owned();
     assert!(output.contains(r#""topics":[{"path":"README.md""#));
     assert!(output.contains(r#""jsonrpc":"2.0""#));
