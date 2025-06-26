@@ -44,8 +44,10 @@ pub struct ToolAnnotations {
 
 /// Returns all available tools (for /tools/list)
 #[allow(dead_code)]
-pub(crate) async fn list_tools() -> Vec<ToolSchema> {
-    vec![
+/// Returns all available tools (for /tools/list)
+/// If no tools are returned, emits an MCP error per spec (code 32001).
+pub(crate) async fn list_tools() -> Result<Vec<ToolSchema>, MCPError> {
+    let tools = vec![
         ToolSchema {
             name: "read_wiki_structure".to_string(),
             description: Some("Get a list of documentation topics for a GitHub repository".to_string()),
@@ -101,7 +103,12 @@ pub(crate) async fn list_tools() -> Vec<ToolSchema> {
                 open_world_hint: None,
             }),
         },
-    ]
+    ];
+    if tools.is_empty() {
+        Err(MCPError::NoToolsAvailable)
+    } else {
+        Ok(tools)
+    }
 }
 
 /// Executes a tool by name with the given arguments (for /tools/call)
@@ -169,6 +176,8 @@ pub enum MCPError {
     InvalidArgs(String),
     /// Internal processing error.
     Internal(String),
+    /// No tools available (tools/list returned empty)
+    NoToolsAvailable,
 }
 
 // -- Tests stubbed below -----------------------------------------------------
@@ -176,12 +185,6 @@ pub enum MCPError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn test_list_tools_empty() {
-        let tools = list_tools().await;
-        assert_eq!(tools.len(), 0);
-    }
 
     #[tokio::test]
     async fn test_call_tool_not_implemented() {

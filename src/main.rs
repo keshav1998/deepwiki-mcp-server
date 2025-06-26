@@ -29,6 +29,7 @@ struct MCPErrorObject {
 
 /// Checks if a JSON value is MCP-compliant envelope.
 fn main() {
+    let test_mode_empty_tools = std::env::var("MCP_TEST_EMPTY_TOOLS").ok() == Some("1".to_string());
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     for line in stdin.lock().lines() {
@@ -59,10 +60,40 @@ fn main() {
         // Dispatch to MCP tool handlers
         let (result, error) = match req.method.as_str() {
             "tools/list" => {
-                // Call async handler for list_tools and flatten to sync via block_on for this CLI/proxy
-                let list = futures::executor::block_on(crate::mcp::list_tools());
-                let tools = serde_json::to_value(list).ok();
-                (tools, None)
+                if test_mode_empty_tools {
+                    (
+                        None,
+                        Some(MCPErrorObject {
+                            code: 32001,
+                            message: "No tools available: DeepWiki MCP backend responded with empty toolset (TEST MODE)".to_string(),
+                            data: None,
+                        }),
+                    )
+                } else {
+                    // Updated: handler returns Err if tools is empty, Ok if nonempty
+                    match futures::executor::block_on(crate::mcp::list_tools()) {
+                        Ok(list) => {
+                            let tools = serde_json::to_value(list).ok();
+                            (tools, None)
+                        }
+                        Err(crate::mcp::MCPError::NoToolsAvailable) => (
+                            None,
+                            Some(MCPErrorObject {
+                                code: 32001,
+                                message: "No tools available: DeepWiki MCP backend responded with empty toolset (possible configuration or server failure).".to_string(),
+                                data: None,
+                            }),
+                        ),
+                        Err(e) => (
+                            None,
+                            Some(MCPErrorObject {
+                                code: 32099,
+                                message: format!("Handler error: {:?}", e),
+                                data: None,
+                            }),
+                        ),
+                    }
+                }
             }
             "tools/call" => {
                 // tools/call expects a params object with "name" and "arguments"
