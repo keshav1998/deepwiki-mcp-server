@@ -13,7 +13,7 @@ A clear and concise description of what the bug is, including error messages or 
 **To Reproduce**
 Steps to reproduce the behavior (include exact commands/examples if relevant):
 1. Run '...'
-2. Use input: 
+2. Use input:
 3. See error/envelope/result
 
 **Expected behavior**

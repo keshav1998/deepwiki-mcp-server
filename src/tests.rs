@@ -7,7 +7,7 @@
 //! Run with: `cargo test --lib`
 
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use crate::{
         DeepWikiContextServerSettings, DeepWikiMcpExtension, default_endpoint, default_protocol,
     };
@@ -115,7 +115,7 @@ mod tests {
 
         // Verify the command would be constructed correctly
         let expected_command = "./scripts/deepwiki-mcp-proxy.sh";
-        let expected_env = vec![
+        let expected_env = [
             ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
             ("DEEPWIKI_PROTOCOL".to_string(), config.protocol.clone()),
         ];
@@ -134,7 +134,7 @@ mod tests {
             protocol: "sse".to_string(),
         };
 
-        let expected_env = vec![
+        let expected_env = [
             ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
             ("DEEPWIKI_PROTOCOL".to_string(), config.protocol.clone()),
         ];
@@ -149,8 +149,8 @@ mod tests {
         let endpoint_var = "DEEPWIKI_ENDPOINT";
         let protocol_var = "DEEPWIKI_PROTOCOL";
 
-        assert_eq!(endpoint_var.len(), 18);
-        assert_eq!(protocol_var.len(), 18);
+        assert_eq!(endpoint_var.len(), 17);
+        assert_eq!(protocol_var.len(), 17);
         assert!(endpoint_var.starts_with("DEEPWIKI_"));
         assert!(protocol_var.starts_with("DEEPWIKI_"));
     }
@@ -189,8 +189,7 @@ mod tests {
         // This is a compile-time test - if this compiles, the trait is implemented correctly
         let _trait_object: &mut dyn Extension = &mut extension;
 
-        // Test passes if it compiles
-        assert!(true);
+        // Test passes if it compiles - no assertion needed
     }
 
     #[test]
@@ -294,7 +293,7 @@ mod integration_tests {
         // Simulate command construction
         let command_string = "./scripts/deepwiki-mcp-proxy.sh".to_string();
         let args: Vec<String> = vec![];
-        let env = vec![
+        let env = [
             ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint),
             ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
         ];
