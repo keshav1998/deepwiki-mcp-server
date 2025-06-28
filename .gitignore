@@ -39,3 +39,4 @@ venv/
 
 # Ignore plan.rules everywhere
 plan.rules
+extension.wasm

@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 use zed::settings::ContextServerSettings;
-use zed_extension_api::{self as zed, serde_json, Command, ContextServerId, Project, Result};
+use zed_extension_api::{self as zed, Command, ContextServerId, Project, Result, serde_json};
 
 struct DeepWikiMcpExtension;
 
@@ -34,7 +34,8 @@ impl zed::Extension for DeepWikiMcpExtension {
         project: &Project,
     ) -> Result<Command> {
         // Get user settings or use defaults (DeepWiki is free, no auth required)
-        let settings = ContextServerSettings::for_project("deepwiki-mcp-extension", project)?;
+        let settings =
+            ContextServerSettings::for_project("deepwiki-mcp-server-extension", project)?;
 
         let config = if let Some(settings_value) = settings.settings {
             serde_json::from_value(settings_value).unwrap_or_else(|_| {
