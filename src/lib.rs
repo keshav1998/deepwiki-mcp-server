@@ -1,18 +1,29 @@
-//! DeepWiki MCP Zed Extension
-//!
-//! This crate exposes the DeepWiki MCP server as a Zed context server extension.
-//! Implements the zed_extension_api::Extension trait to launch and manage the MCP server
-//! from the Zed editor context. Uses Zed config and [context_servers] settings for endpoint
-//! orchestration. For full integration/testing details, see README and configuration docs.
+use schemars::JsonSchema;
+use serde::Deserialize;
+use zed::settings::ContextServerSettings;
+use zed_extension_api::{self as zed, serde_json, Command, ContextServerId, Project, Result};
 
-pub mod mcp;
+struct DeepWikiMcpExtension;
 
-use zed_extension_api::{self as zed, Command, ContextServerId, Project, Result};
+#[derive(Debug, Deserialize, JsonSchema)]
+struct DeepWikiContextServerSettings {
+    /// DeepWiki MCP server endpoint (optional, defaults to official server)
+    #[serde(default = "default_endpoint")]
+    endpoint: String,
+    /// Wire protocol to use (optional, defaults to 'mcp')
+    #[serde(default = "default_protocol")]
+    protocol: String,
+}
 
-/// Marker extension struct for Zed registration.
-pub struct DeepWikiExtension;
+fn default_endpoint() -> String {
+    "https://mcp.deepwiki.com".to_string()
+}
 
-impl zed::Extension for DeepWikiExtension {
+fn default_protocol() -> String {
+    "mcp".to_string()
+}
+
+impl zed::Extension for DeepWikiMcpExtension {
     fn new() -> Self {
         Self
     }
@@ -20,15 +31,34 @@ impl zed::Extension for DeepWikiExtension {
     fn context_server_command(
         &mut self,
         _context_server_id: &ContextServerId,
-        _project: &Project,
+        project: &Project,
     ) -> Result<Command> {
+        // Get user settings or use defaults (DeepWiki is free, no auth required)
+        let settings = ContextServerSettings::for_project("deepwiki-mcp-extension", project)?;
+
+        let config = if let Some(settings_value) = settings.settings {
+            serde_json::from_value(settings_value).unwrap_or_else(|_| {
+                DeepWikiContextServerSettings {
+                    endpoint: default_endpoint(),
+                    protocol: default_protocol(),
+                }
+            })
+        } else {
+            DeepWikiContextServerSettings {
+                endpoint: default_endpoint(),
+                protocol: default_protocol(),
+            }
+        };
+
         Ok(Command {
-            command: "./deepwiki-mcp-bin".into(),
+            command: "./scripts/deepwiki-mcp-proxy.sh".to_string(),
             args: vec![],
-            env: vec![],
+            env: vec![
+                ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint),
+                ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
+            ],
         })
     }
 }
 
-// Registers our extension with Zed (required).
-zed::register_extension!(DeepWikiExtension);
+zed::register_extension!(DeepWikiMcpExtension);
