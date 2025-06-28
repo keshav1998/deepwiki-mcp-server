@@ -1,11 +1,11 @@
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use zed::settings::ContextServerSettings;
 use zed_extension_api::{self as zed, Command, ContextServerId, Project, Result, serde_json};
 
 struct DeepWikiMcpExtension;
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct DeepWikiContextServerSettings {
     /// DeepWiki MCP server endpoint (optional, defaults to official server)
     #[serde(default = "default_endpoint")]
@@ -61,5 +61,8 @@ impl zed::Extension for DeepWikiMcpExtension {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;
 
 zed::register_extension!(DeepWikiMcpExtension);
