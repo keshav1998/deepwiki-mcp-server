@@ -23,6 +23,7 @@ pub enum AuthType {
     /// Bearer token authentication
     Bearer,
     /// Custom header authentication
+    #[allow(dead_code)]
     Custom { header_name: String },
 }
 
@@ -39,6 +40,7 @@ impl AuthManager {
     }
 
     /// Create an authentication manager with custom header
+    #[allow(dead_code)]
     pub fn with_custom_header(api_key: Option<String>, header_name: String) -> Self {
         let auth_type = if api_key.is_some() {
             AuthType::Custom { header_name }
@@ -50,11 +52,13 @@ impl AuthManager {
     }
 
     /// Get the API key
-    pub fn get_api_key(&self) -> &Option<String> {
-        &self.api_key
+    #[allow(dead_code)]
+    pub fn get_api_key(&self) -> Option<&String> {
+        self.api_key.as_ref()
     }
 
     /// Set a new API key
+    #[allow(dead_code)]
     pub fn set_api_key(&mut self, api_key: Option<String>) {
         self.api_key = api_key;
 
@@ -85,7 +89,7 @@ impl AuthManager {
             headers.insert(
                 "X-Session-ID",
                 HeaderValue::from_str(&session.id).map_err(|e| BridgeError::Auth {
-                    message: format!("Invalid session ID: {}", e),
+                    message: format!("Invalid session ID: {e}"),
                 })?,
             );
         }
@@ -97,11 +101,11 @@ impl AuthManager {
             }
             AuthType::Bearer => {
                 if let Some(api_key) = &self.api_key {
-                    let auth_value = format!("Bearer {}", api_key);
+                    let auth_value = format!("Bearer {api_key}");
                     headers.insert(
                         "Authorization",
                         HeaderValue::from_str(&auth_value).map_err(|e| BridgeError::Auth {
-                            message: format!("Invalid bearer token: {}", e),
+                            message: format!("Invalid bearer token: {e}"),
                         })?,
                     );
                     debug!("Added Bearer authentication");
@@ -114,14 +118,14 @@ impl AuthManager {
                     let header_name =
                         HeaderName::from_bytes(header_name.as_bytes()).map_err(|e| {
                             BridgeError::Auth {
-                                message: format!("Invalid header name '{}': {}", header_name, e),
+                                message: format!("Invalid header name '{header_name}': {e}"),
                             }
                         })?;
 
                     headers.insert(
                         header_name,
                         HeaderValue::from_str(api_key).map_err(|e| BridgeError::Auth {
-                            message: format!("Invalid API key value: {}", e),
+                            message: format!("Invalid API key value: {e}"),
                         })?,
                     );
                     debug!("Added custom header authentication");
@@ -176,6 +180,7 @@ impl AuthManager {
     }
 
     /// Validate that authentication is properly configured for the endpoint
+    #[allow(dead_code)]
     pub fn validate_for_endpoint(&self, endpoint: &str) -> BridgeResult<()> {
         if endpoint.contains("mcp.devin.ai") && self.api_key.is_none() {
             return Err(BridgeError::Auth {
@@ -192,6 +197,7 @@ impl AuthManager {
     }
 
     /// Check if the current authentication is valid
+    #[allow(dead_code)]
     pub fn is_valid(&self) -> bool {
         match &self.auth_type {
             AuthType::None => true,
@@ -200,6 +206,7 @@ impl AuthManager {
     }
 
     /// Get authentication summary for debugging
+    #[allow(dead_code)]
     pub fn get_auth_summary(&self) -> HashMap<String, String> {
         let mut summary = HashMap::new();
 
@@ -224,6 +231,7 @@ impl AuthManager {
     }
 
     /// Create authentication for different endpoint types
+    #[allow(dead_code)]
     pub fn for_endpoint(endpoint: &str, api_key: Option<String>) -> BridgeResult<Self> {
         let auth_manager = if endpoint.contains("mcp.devin.ai") {
             // Devin requires API key
