@@ -3,7 +3,14 @@
 //! This module provides an HTTP client that communicates with hosted MCP servers
 //! and translates between JSON-RPC over HTTP and the standard MCP protocol.
 
-use super::{auth::AuthManager, protocol::*, BridgeError, BridgeResult, SessionInfo};
+use super::{
+    auth::AuthManager,
+    protocol::{
+        CallToolParams, InitializeParams, InitializeResponse, McpRequest, McpResponse, Tool,
+        ToolCallResponse, ToolsListResponse,
+    },
+    BridgeError, BridgeResult, SessionInfo,
+};
 use reqwest::{Client, Response};
 use serde_json::Value;
 
@@ -22,7 +29,7 @@ pub struct McpHttpClient {
 impl McpHttpClient {
     /// Create a new HTTP client
     pub fn new(
-        endpoint: String,
+        endpoint: &str,
         api_key: Option<String>,
         timeout_seconds: u64,
     ) -> BridgeResult<Self> {
@@ -31,7 +38,7 @@ impl McpHttpClient {
             .user_agent("zed-deepwiki-mcp/0.1.0")
             .build()?;
 
-        let session = SessionInfo::new(endpoint.clone(), api_key.clone());
+        let session = SessionInfo::new(endpoint.to_string(), api_key.clone());
         let auth_manager = AuthManager::new(api_key);
 
         Ok(Self {
@@ -43,13 +50,14 @@ impl McpHttpClient {
     }
 
     /// Get the session information
+    #[allow(dead_code)]
     pub fn session(&self) -> &SessionInfo {
         &self.session
     }
 
     /// Send an MCP request to the HTTP endpoint
     pub async fn send_request(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
-        let url = self.build_url(&request)?;
+        let url = self.build_url(&request);
         let headers = self.auth_manager.get_headers(&self.session)?;
 
         debug!("Sending MCP request to {}: {}", url, request.method);
@@ -114,7 +122,7 @@ impl McpHttpClient {
             params,
         };
 
-        let url = self.build_url(&request)?;
+        let url = self.build_url(&request);
         let headers = self.auth_manager.get_headers(&self.session)?;
 
         debug!("Sending MCP notification: {}", method);
@@ -201,28 +209,17 @@ impl McpHttpClient {
     }
 
     /// Build the appropriate URL for the request
-    fn build_url(&self, request: &McpRequest) -> BridgeResult<String> {
+    fn build_url(&self, _request: &McpRequest) -> String {
         let base_url = &self.session.endpoint;
 
         // Handle different protocols and endpoints
-        let url = if base_url.contains("mcp.deepwiki.com") {
-            if request.method == "initialize" {
-                format!("{}/sse", base_url)
-            } else {
-                format!("{}/sse", base_url)
-            }
-        } else if base_url.contains("mcp.devin.ai") {
-            if request.method == "initialize" {
-                format!("{}/sse", base_url)
-            } else {
-                format!("{}/sse", base_url)
-            }
+        if base_url.contains("mcp.deepwiki.com") || base_url.contains("mcp.devin.ai") {
+            // Both DeepWiki and Devin use SSE endpoints
+            format!("{base_url}/sse")
         } else {
             // Custom endpoint
-            format!("{}/mcp", base_url)
-        };
-
-        Ok(url)
+            format!("{base_url}/mcp")
+        }
     }
 
     /// Handle HTTP response and convert to MCP response
@@ -240,8 +237,8 @@ impl McpHttpClient {
                 status.canonical_reason().unwrap_or("Unknown")
             );
             return Err(BridgeError::Server {
-                code: status.as_u16() as i32,
-                message: format!("HTTP error: {}", status),
+                code: i32::from(status.as_u16()),
+                message: format!("HTTP error: {status}"),
             });
         }
 
@@ -315,23 +312,24 @@ impl McpHttpClient {
     }
 
     /// Check if the session is still valid
+    #[allow(dead_code)]
     pub fn is_session_valid(&self) -> bool {
         // Sessions are valid for 1 hour
         self.session.age_seconds() < 3600
     }
 
     /// Refresh the session if needed
-    pub async fn refresh_session_if_needed(&mut self) -> BridgeResult<()> {
+    #[allow(dead_code)]
+    pub fn refresh_session_if_needed(&mut self) {
         if !self.is_session_valid() {
             info!("Session expired, creating new session");
-            let api_key = self.auth_manager.get_api_key().clone();
+            let api_key = self.auth_manager.get_api_key().cloned();
             self.session = SessionInfo::new(self.session.endpoint.clone(), api_key);
         }
-        Ok(())
     }
 }
 
-/// Builder for McpHttpClient
+/// Builder for `McpHttpClient`
 pub struct McpHttpClientBuilder {
     endpoint: Option<String>,
     api_key: Option<String>,
@@ -373,7 +371,7 @@ impl McpHttpClientBuilder {
             message: "Endpoint is required".to_string(),
         })?;
 
-        McpHttpClient::new(endpoint, self.api_key, self.timeout_seconds)
+        McpHttpClient::new(&endpoint, self.api_key, self.timeout_seconds)
     }
 }
 
@@ -393,7 +391,7 @@ mod tests {
 
     #[test]
     fn test_url_building() {
-        let client = McpHttpClient::new("https://mcp.deepwiki.com".to_string(), None, 60).unwrap();
+        let client = McpHttpClient::new("https://mcp.deepwiki.com", None, 60).unwrap();
 
         let request = McpRequest {
             jsonrpc: "2.0".to_string(),
@@ -402,7 +400,7 @@ mod tests {
             params: None,
         };
 
-        let url = client.build_url(&request).unwrap();
+        let url = client.build_url(&request);
         assert_eq!(url, "https://mcp.deepwiki.com/sse");
     }
 }
