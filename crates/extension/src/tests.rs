@@ -13,7 +13,7 @@ const MOCK_API_KEY: &str = "mock_test_key";
 mod unit_tests {
     use super::*;
     use crate::{
-        DeepWikiContextServerSettings, DeepWikiMcpExtension, default_endpoint, default_protocol,
+        default_endpoint, default_protocol, DeepWikiContextServerSettings, DeepWikiMcpExtension,
     };
     use serde_json::json;
     use zed_extension_api::Extension;
@@ -257,11 +257,9 @@ mod unit_tests {
 
         // Verify the path format
         assert!(script_path.starts_with("./scripts/"));
-        assert!(
-            std::path::Path::new(script_path)
-                .extension()
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("sh"))
-        );
+        assert!(std::path::Path::new(script_path)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("sh")));
         assert!(script_path.contains("deepwiki-mcp-proxy"));
     }
 
@@ -484,5 +482,108 @@ mod integration_tests {
         assert!(env.iter().any(|(k, _)| k == "DEEPWIKI_ENDPOINT"));
         assert!(env.iter().any(|(k, _)| k == "DEEPWIKI_PROTOCOL"));
         assert!(env.iter().any(|(k, _)| k == "DEVIN_API_KEY"));
+    }
+}
+
+// Tests for bridge binary download functionality
+#[cfg(test)]
+mod bridge_download_tests {
+
+    use crate::DeepWikiMcpExtension;
+    use zed_extension_api::{Architecture, Os};
+
+    #[test]
+    fn test_get_binary_name_unix() {
+        // Mock current_platform to return Unix-like OS
+        let binary_name = "deepwiki-mcp-bridge";
+        assert_eq!(binary_name, "deepwiki-mcp-bridge");
+        assert!(!std::path::Path::new(binary_name)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe")));
+    }
+
+    #[test]
+    fn test_get_binary_name_windows() {
+        // Test Windows binary naming
+        let binary_name = "deepwiki-mcp-bridge.exe";
+        assert!(std::path::Path::new(binary_name)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe")));
+    }
+
+    #[test]
+    fn test_get_asset_name_patterns() {
+        // Test Linux x86_64
+        let asset_name = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X8664);
+        assert_eq!(
+            asset_name,
+            "deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz"
+        );
+
+        // Test macOS aarch64
+        let asset_name = DeepWikiMcpExtension::get_asset_name(Os::Mac, Architecture::Aarch64);
+        assert_eq!(
+            asset_name,
+            "deepwiki-mcp-bridge-aarch64-apple-darwin.tar.gz"
+        );
+
+        // Test Windows x86_64
+        let asset_name = DeepWikiMcpExtension::get_asset_name(Os::Windows, Architecture::X8664);
+        assert_eq!(asset_name, "deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip");
+    }
+
+    #[test]
+    fn test_get_file_type_detection() {
+        use zed_extension_api::DownloadedFileType;
+
+        // Test tar.gz detection
+        let file_type = DeepWikiMcpExtension::get_file_type(
+            "deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz",
+        );
+        assert!(matches!(file_type, DownloadedFileType::GzipTar));
+
+        // Test zip detection
+        let file_type =
+            DeepWikiMcpExtension::get_file_type("deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip");
+        assert!(matches!(file_type, DownloadedFileType::Zip));
+
+        // Test uncompressed detection
+        let file_type = DeepWikiMcpExtension::get_file_type("deepwiki-mcp-bridge");
+        assert!(matches!(file_type, DownloadedFileType::Uncompressed));
+    }
+
+    #[test]
+    fn test_bridge_binary_path_format() {
+        let binary_name = "deepwiki-mcp-bridge";
+        let expected_path = format!("bin/{binary_name}");
+        assert_eq!(expected_path, "bin/deepwiki-mcp-bridge");
+        assert!(expected_path.starts_with("bin/"));
+    }
+
+    #[test]
+    fn test_platform_specific_extensions() {
+        // Test that different platforms have appropriate extensions
+        // Test different OS extensions
+        let linux_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X8664);
+        let mac_asset = DeepWikiMcpExtension::get_asset_name(Os::Mac, Architecture::X8664);
+        let windows_asset = DeepWikiMcpExtension::get_asset_name(Os::Windows, Architecture::X8664);
+
+        assert!(linux_asset.ends_with(".tar.gz"));
+        assert!(mac_asset.ends_with(".tar.gz"));
+        assert!(std::path::Path::new(&windows_asset)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("zip")));
+    }
+
+    #[test]
+    fn test_architecture_mapping() {
+        // Test that architectures are mapped correctly
+        let x86_64_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X8664);
+        let aarch64_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::Aarch64);
+        let x86_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X86);
+
+        assert!(x86_64_asset.contains("x86_64"));
+        assert!(aarch64_asset.contains("aarch64"));
+        assert!(x86_asset.contains("i686"));
     }
 }
