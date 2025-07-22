@@ -5,7 +5,10 @@
 
 use super::{
     client::{McpHttpClient, McpHttpClientBuilder},
-    protocol::*,
+    protocol::{
+        CallToolParams, InitializeParams, McpError, McpRequest, McpResponse, PromptsListResponse,
+        ResourcesListResponse, ToolsListResponse,
+    },
     BridgeConfig, BridgeError, BridgeResult,
 };
 use futures::stream::StreamExt;
@@ -76,9 +79,9 @@ impl StdioMcpServer {
                             let error_response =
                                 if let Ok(request) = serde_json::from_str::<Value>(&line) {
                                     let id = request.get("id").cloned();
-                                    self.create_error_response(id, &e)
+                                    Self::create_error_response(id, &e)
                                 } else {
-                                    self.create_error_response(None, &e)
+                                    Self::create_error_response(None, &e)
                                 };
 
                             let error_str = serde_json::to_string(&error_response)?;
@@ -112,14 +115,14 @@ impl StdioMcpServer {
             "notifications/initialized" => self.handle_initialized(request).await,
             "tools/list" => self.handle_tools_list(request).await.map(Some),
             "tools/call" => self.handle_tool_call(request).await.map(Some),
-            "resources/list" => self.handle_resources_list(request).await.map(Some),
-            "resources/read" => self.handle_resource_read(request).await.map(Some),
-            "prompts/list" => self.handle_prompts_list(request).await.map(Some),
-            "prompts/get" => self.handle_prompt_get(request).await.map(Some),
+            "resources/list" => self.handle_resources_list(request).map(Some),
+            "resources/read" => self.handle_resource_read(request).map(Some),
+            "prompts/list" => self.handle_prompts_list(request).map(Some),
+            "prompts/get" => self.handle_prompt_get(request).map(Some),
             _ => {
                 warn!("Unknown method: {}", request.method);
                 if request.id.is_some() {
-                    Ok(Some(self.create_method_not_found_response(
+                    Ok(Some(Self::create_method_not_found_response(
                         request.id,
                         &request.method,
                     )))
@@ -133,7 +136,7 @@ impl StdioMcpServer {
     /// Handle initialize request
     async fn handle_initialize(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
         if self.initialized {
-            return Ok(self.create_error_response(
+            return Ok(Self::create_error_response(
                 request.id,
                 &BridgeError::Protocol {
                     message: "Already initialized".to_string(),
@@ -174,7 +177,7 @@ impl StdioMcpServer {
             }
             Err(e) => {
                 error!("Failed to initialize: {}", e);
-                self.create_error_response(request.id, &e)
+                Self::create_error_response(request.id, &e)
             }
         };
 
@@ -224,7 +227,7 @@ impl StdioMcpServer {
             }
             Err(e) => {
                 error!("Failed to list tools: {}", e);
-                Ok(self.create_error_response(request.id, &e))
+                Ok(Self::create_error_response(request.id, &e))
             }
         }
     }
@@ -252,13 +255,13 @@ impl StdioMcpServer {
             }),
             Err(e) => {
                 error!("Failed to call tool '{}': {}", call_params.name, e);
-                Ok(self.create_error_response(request.id, &e))
+                Ok(Self::create_error_response(request.id, &e))
             }
         }
     }
 
     /// Handle resources/list request
-    async fn handle_resources_list(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
+    fn handle_resources_list(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
         self.ensure_initialized(&request)?;
 
         // For now, return empty resources list
@@ -277,11 +280,11 @@ impl StdioMcpServer {
     }
 
     /// Handle resources/read request
-    async fn handle_resource_read(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
+    fn handle_resource_read(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
         self.ensure_initialized(&request)?;
 
         // For now, return error as resources are not implemented
-        Ok(self.create_error_response(
+        Ok(Self::create_error_response(
             request.id,
             &BridgeError::Protocol {
                 message: "Resource reading not implemented".to_string(),
@@ -290,7 +293,7 @@ impl StdioMcpServer {
     }
 
     /// Handle prompts/list request
-    async fn handle_prompts_list(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
+    fn handle_prompts_list(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
         self.ensure_initialized(&request)?;
 
         // For now, return empty prompts list
@@ -308,11 +311,11 @@ impl StdioMcpServer {
     }
 
     /// Handle prompts/get request
-    async fn handle_prompt_get(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
+    fn handle_prompt_get(&mut self, request: McpRequest) -> BridgeResult<McpResponse> {
         self.ensure_initialized(&request)?;
 
         // For now, return error as prompts are not implemented
-        Ok(self.create_error_response(
+        Ok(Self::create_error_response(
             request.id,
             &BridgeError::Protocol {
                 message: "Prompt retrieval not implemented".to_string(),
@@ -331,7 +334,7 @@ impl StdioMcpServer {
     }
 
     /// Create an error response
-    fn create_error_response(&self, id: Option<Value>, error: &BridgeError) -> McpResponse {
+    fn create_error_response(id: Option<Value>, error: &BridgeError) -> McpResponse {
         let mcp_error = match error {
             BridgeError::Json(_) => McpError::parse_error(error.to_string()),
             BridgeError::Protocol { .. } => McpError::invalid_request(error.to_string()),
@@ -353,14 +356,13 @@ impl StdioMcpServer {
     }
 
     /// Create a method not found response
-    fn create_method_not_found_response(&self, id: Option<Value>, method: &str) -> McpResponse {
+    fn create_method_not_found_response(id: Option<Value>, method: &str) -> McpResponse {
         McpResponse {
             jsonrpc: "2.0".to_string(),
             id,
             result: None,
             error: Some(McpError::method_not_found(format!(
-                "Method '{}' not found",
-                method
+                "Method '{method}' not found"
             ))),
         }
     }
@@ -368,6 +370,7 @@ impl StdioMcpServer {
 
 /// Configuration builder for the STDIO server
 pub struct StdioMcpServerBuilder {
+    #[allow(dead_code)]
     config: BridgeConfig,
 }
 
@@ -384,31 +387,37 @@ impl StdioMcpServerBuilder {
         }
     }
 
+    #[allow(dead_code)]
     pub fn endpoint(mut self, endpoint: String) -> Self {
         self.config.endpoint = endpoint;
         self
     }
 
+    #[allow(dead_code)]
     pub fn protocol(mut self, protocol: String) -> Self {
         self.config.protocol = protocol;
         self
     }
 
+    #[allow(dead_code)]
     pub fn api_key(mut self, api_key: Option<String>) -> Self {
         self.config.api_key = api_key;
         self
     }
 
+    #[allow(dead_code)]
     pub fn timeout_seconds(mut self, timeout: u64) -> Self {
         self.config.timeout_seconds = timeout;
         self
     }
 
+    #[allow(dead_code)]
     pub fn debug(mut self, debug: bool) -> Self {
         self.config.debug = debug;
         self
     }
 
+    #[allow(dead_code)]
     pub fn build(self) -> StdioMcpServer {
         StdioMcpServer::new(self.config)
     }
@@ -436,12 +445,12 @@ mod tests {
 
     #[test]
     fn test_error_response_creation() {
-        let server = StdioMcpServer::new(BridgeConfig::default());
+        let _server = StdioMcpServer::new(BridgeConfig::default());
         let error = BridgeError::Protocol {
             message: "Test error".to_string(),
         };
 
-        let response = server.create_error_response(Some(Value::Number(1.into())), &error);
+        let response = StdioMcpServer::create_error_response(Some(Value::Number(1.into())), &error);
 
         assert_eq!(response.jsonrpc, "2.0");
         assert_eq!(response.id, Some(Value::Number(1.into())));
@@ -451,9 +460,11 @@ mod tests {
 
     #[test]
     fn test_method_not_found_response() {
-        let server = StdioMcpServer::new(BridgeConfig::default());
-        let response = server
-            .create_method_not_found_response(Some(Value::Number(1.into())), "unknown/method");
+        let _server = StdioMcpServer::new(BridgeConfig::default());
+        let response = StdioMcpServer::create_method_not_found_response(
+            Some(Value::Number(1.into())),
+            "unknown/method",
+        );
 
         assert_eq!(response.jsonrpc, "2.0");
         assert_eq!(response.id, Some(Value::Number(1.into())));
