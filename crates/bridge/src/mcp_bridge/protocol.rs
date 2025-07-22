@@ -362,11 +362,13 @@ impl Default for InitializeParams {
 
 impl Content {
     /// Create a text content
+    #[allow(dead_code)]
     pub fn text(text: impl Into<String>) -> Self {
         Self::Text { text: text.into() }
     }
 
     /// Create an image content
+    #[allow(dead_code)]
     pub fn image(data: impl Into<String>, mime_type: impl Into<String>) -> Self {
         Self::Image {
             data: data.into(),
@@ -375,6 +377,7 @@ impl Content {
     }
 
     /// Create a resource content
+    #[allow(dead_code)]
     pub fn resource(uri: impl Into<String>, mime_type: Option<String>) -> Self {
         Self::Resource {
             resource: ResourceContent {
@@ -387,6 +390,7 @@ impl Content {
 
 impl ToolCallResponse {
     /// Create a successful tool response with text content
+    #[allow(dead_code)]
     pub fn success_text(text: impl Into<String>) -> Self {
         Self {
             content: vec![Content::text(text)],
@@ -395,6 +399,7 @@ impl ToolCallResponse {
     }
 
     /// Create an error tool response
+    #[allow(dead_code)]
     pub fn error(message: impl Into<String>) -> Self {
         Self {
             content: vec![Content::text(message)],
