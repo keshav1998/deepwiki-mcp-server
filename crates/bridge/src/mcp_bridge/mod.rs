@@ -79,8 +79,10 @@ pub struct SessionInfo {
     /// Endpoint URL
     pub endpoint: String,
     /// Authentication headers
+    #[allow(dead_code)]
     pub headers: HashMap<String, String>,
     /// Session creation timestamp
+    #[allow(dead_code)]
     pub created_at: std::time::Instant,
 }
 
@@ -104,46 +106,62 @@ impl SessionInfo {
     }
 
     /// Get session age in seconds
+    #[allow(dead_code)]
     pub fn age_seconds(&self) -> u64 {
         self.created_at.elapsed().as_secs()
     }
 }
 
-/// MCP protocol constants
+/// MCP Protocol Constants
 pub mod constants {
+    #[allow(dead_code)]
     pub const JSONRPC_VERSION: &str = "2.0";
+    #[allow(dead_code)]
     pub const MCP_VERSION: &str = "2024-11-05";
 
     // Method names
+    #[allow(dead_code)]
     pub const METHOD_INITIALIZE: &str = "initialize";
+    #[allow(dead_code)]
     pub const METHOD_INITIALIZED: &str = "notifications/initialized";
+    #[allow(dead_code)]
     pub const METHOD_TOOLS_LIST: &str = "tools/list";
+    #[allow(dead_code)]
     pub const METHOD_TOOLS_CALL: &str = "tools/call";
+    #[allow(dead_code)]
     pub const METHOD_RESOURCES_LIST: &str = "resources/list";
+    #[allow(dead_code)]
     pub const METHOD_RESOURCES_READ: &str = "resources/read";
+    #[allow(dead_code)]
     pub const METHOD_PROMPTS_LIST: &str = "prompts/list";
+    #[allow(dead_code)]
     pub const METHOD_PROMPTS_GET: &str = "prompts/get";
 
-    // Error codes
+    // JSON-RPC error codes
+    #[allow(dead_code)]
     pub const ERROR_PARSE: i32 = -32700;
+    #[allow(dead_code)]
     pub const ERROR_INVALID_REQUEST: i32 = -32600;
+    #[allow(dead_code)]
     pub const ERROR_METHOD_NOT_FOUND: i32 = -32601;
+    #[allow(dead_code)]
     pub const ERROR_INVALID_PARAMS: i32 = -32602;
+    #[allow(dead_code)]
     pub const ERROR_INTERNAL: i32 = -32603;
 }
 
 /// Utility functions
 pub mod utils {
-    use super::*;
-
     /// Create a standard JSON-RPC error response
+    /// Helper function to create error responses
+    #[allow(dead_code)]
     pub fn create_error_response(
-        id: Option<serde_json::Value>,
+        id: Option<&serde_json::Value>,
         code: i32,
         message: &str,
     ) -> serde_json::Value {
         serde_json::json!({
-            "jsonrpc": constants::JSONRPC_VERSION,
+            "jsonrpc": "2.0",
             "id": id,
             "error": {
                 "code": code,
@@ -153,19 +171,22 @@ pub mod utils {
     }
 
     /// Extract method name from JSON-RPC request
+    #[allow(dead_code)]
     pub fn extract_method(request: &serde_json::Value) -> Option<&str> {
         request.get("method")?.as_str()
     }
 
     /// Extract request ID from JSON-RPC request
+    #[allow(dead_code)]
     pub fn extract_id(request: &serde_json::Value) -> Option<serde_json::Value> {
         request.get("id").cloned()
     }
 
     /// Check if request is a notification (no ID)
+    #[allow(dead_code)]
     pub fn is_notification(request: &serde_json::Value) -> bool {
         !request
             .as_object()
-            .map_or(false, |obj| obj.contains_key("id"))
+            .is_some_and(|obj| obj.contains_key("id"))
     }
 }
