@@ -4,21 +4,23 @@ A **Model Context Protocol (MCP) server extension** for the Zed IDE that provide
 
 ## 🏗️ Architecture
 
-This extension uses a **two-part architecture** optimized for Zed's WebAssembly-based extension system:
+This extension uses a **two-part architecture** with automatic binary download:
 
 ```
-Zed ↔ Extension (WASM) → Bridge Binary (Native) ↔ HTTP MCP Server
+Zed ↔ Extension (WASM) → Auto-Downloaded Bridge (Native) ↔ HTTP MCP Server
 ```
 
 ### Components
 
 1. **Extension (WASM)** - `crates/extension/`
    - Lightweight Zed extension compiled to WebAssembly
+   - Automatically downloads platform-specific bridge binary
    - Provides configuration UI and command setup
    - No async/HTTP dependencies (WASM-compatible)
 
 2. **Bridge Binary (Native)** - `crates/bridge/`
-   - Standalone native binary with full HTTP/async capabilities
+   - Auto-downloaded from GitHub releases per platform
+   - Full HTTP/async capabilities with tokio and reqwest
    - Translates between STDIO (Zed) and HTTP (DeepWiki/Devin)
    - Handles MCP protocol communication
 
@@ -26,9 +28,11 @@ Zed ↔ Extension (WASM) → Bridge Binary (Native) ↔ HTTP MCP Server
 
 - **Free DeepWiki Access**: Query public repository documentation
 - **Devin AI Integration**: Enhanced AI-powered documentation with API key
+- **Automatic Setup**: Bridge binary downloaded automatically per platform
 - **Type-Safe Configuration**: JSON schema validation for settings
 - **Secure Authentication**: Environment variable-based API key handling
 - **Protocol Compliance**: Full MCP (Model Context Protocol) support
+- **Cross-Platform**: Supports Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), Windows
 
 ## 🛠️ Installation
 
@@ -38,7 +42,19 @@ Zed ↔ Extension (WASM) → Bridge Binary (Native) ↔ HTTP MCP Server
 - Zed IDE
 - WASM target: `rustup target add wasm32-wasip1`
 
-### Build from Source
+### Install from Zed Extensions Registry (Recommended)
+
+1. **Open Zed**
+2. **Open Command Palette** (`Cmd/Ctrl+Shift+P`)
+3. **Type**: "zed: extensions"
+4. **Search for**: "DeepWiki MCP"
+5. **Click Install**
+
+The extension will automatically download the appropriate bridge binary for your platform when first used.
+
+### Build from Source (Advanced)
+
+If you want to build from source:
 
 1. **Clone the repository**:
    ```bash
@@ -51,18 +67,9 @@ Zed ↔ Extension (WASM) → Bridge Binary (Native) ↔ HTTP MCP Server
    ./build.sh
    ```
 
-3. **Install the bridge binary**:
+3. **Install manually in Zed**:
    ```bash
-   cp dist/bin/deepwiki-mcp-bridge ~/.local/bin/
-   # or to /usr/local/bin/ for system-wide access
-   ```
-
-4. **Install the extension in Zed**:
-   ```bash
-   # Method 1: Direct installation
-   zed --install-extension ./dist
-   
-   # Method 2: Manual installation
+   # Copy to Zed extensions directory
    cp -r dist/* ~/.config/zed/extensions/deepwiki-mcp-server/
    ```
 
@@ -187,24 +194,27 @@ This extension implements the full **Model Context Protocol v2024-11-05** specif
 
 ### Common Issues
 
-1. **Bridge binary not found**:
-   ```bash
-   # Ensure bridge is in PATH
-   which deepwiki-mcp-bridge
-   # Should return: /home/user/.local/bin/deepwiki-mcp-bridge
-   ```
+1. **Automatic download failed**:
+   - Check internet connectivity and GitHub access
+   - Restart Zed to retry the download
+   - Check Zed's extension logs for details
 
-2. **WASM compilation fails**:
-   ```bash
-   # Install WASM target
-   rustup target add wasm32-wasip1
-   ```
+2. **Bridge binary not working**:
+   - The extension automatically handles binary installation
+   - If issues persist, try reinstalling the extension
+   - Check platform compatibility (Linux, macOS, Windows supported)
 
 3. **Authentication errors**:
    ```bash
-   # Check API key
-   echo $DEVIN_API_KEY
-   # Verify endpoint in settings
+   # Check API key in settings
+   # Verify endpoint configuration
+   ```
+
+4. **Manual installation needed**:
+   ```bash
+   # Download from: https://github.com/keshav1998/deepwiki-mcp-server/releases
+   # Extract to extension's bin/ directory
+   # Extension handles the rest automatically
    ```
 
 ### Debug Mode
