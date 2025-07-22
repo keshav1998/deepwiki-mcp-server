@@ -1,4 +1,4 @@
-//! Tests for DeepWiki MCP Extension
+//! Tests for `DeepWiki` MCP Extension
 //!
 //! This test suite focuses on the extension functionality, configuration parsing,
 //! and command construction. The actual MCP communication is handled by the shell
@@ -170,7 +170,7 @@ mod unit_tests {
         let expected_command = "./scripts/deepwiki-mcp-proxy.sh";
         let expected_env = [
             ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol.clone()),
+            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
         ];
 
         assert_eq!(expected_env[0].0, "DEEPWIKI_ENDPOINT");
@@ -213,7 +213,7 @@ mod unit_tests {
 
         let expected_env = [
             ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol.clone()),
+            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
         ];
 
         assert_eq!(expected_env[0].1, "https://custom.deepwiki.com");
@@ -257,7 +257,11 @@ mod unit_tests {
 
         // Verify the path format
         assert!(script_path.starts_with("./scripts/"));
-        assert!(script_path.ends_with(".sh"));
+        assert!(
+            std::path::Path::new(script_path)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("sh"))
+        );
         assert!(script_path.contains("deepwiki-mcp-proxy"));
     }
 
@@ -285,7 +289,7 @@ mod unit_tests {
         let mut extension = DeepWikiMcpExtension::new();
 
         // This is a compile-time test - if this compiles, the trait is implemented correctly
-        let _trait_object: &mut dyn Extension = &mut extension;
+        let _: &mut dyn Extension = &mut extension;
 
         // Test passes if it compiles - no assertion needed
     }
@@ -294,8 +298,8 @@ mod unit_tests {
     fn test_configuration_edge_cases() {
         // Test empty strings (should not panic)
         let config = DeepWikiContextServerSettings {
-            endpoint: "".to_string(),
-            protocol: "".to_string(),
+            endpoint: String::new(),
+            protocol: String::new(),
             devin_api_key: None,
         };
 
@@ -307,7 +311,7 @@ mod unit_tests {
         let long_string = "x".repeat(1000);
         let config = DeepWikiContextServerSettings {
             endpoint: long_string.clone(),
-            protocol: long_string.clone(),
+            protocol: long_string,
             devin_api_key: None, // Test without API key for edge cases
         };
 
@@ -361,8 +365,7 @@ mod unit_tests {
         });
 
         // Test conversion both ways
-        let settings: DeepWikiContextServerSettings =
-            serde_json::from_value(json_obj.clone()).unwrap();
+        let settings: DeepWikiContextServerSettings = serde_json::from_value(json_obj).unwrap();
 
         assert_eq!(settings.endpoint, "https://serde-test.com");
         assert_eq!(settings.protocol, "serde-test");

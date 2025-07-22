@@ -9,9 +9,9 @@ struct DeepWikiMcpExtension;
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct DeepWikiContextServerSettings {
-    /// DeepWiki MCP server endpoint
-    /// - "https://mcp.deepwiki.com" for free public repositories only
-    /// - "https://mcp.devin.ai" for authenticated access to public and private repositories
+    /// `DeepWiki` MCP server endpoint
+    /// - <https://mcp.deepwiki.com> for free public repositories only
+    /// - <https://mcp.devin.ai> for authenticated access to public and private repositories
     #[serde(default = "default_endpoint")]
     endpoint: String,
 
@@ -20,7 +20,7 @@ struct DeepWikiContextServerSettings {
     protocol: String,
 
     /// Optional Devin API key for authenticated access to private repositories
-    /// Required when using "https://mcp.devin.ai" endpoint
+    /// Required when using <https://mcp.devin.ai> endpoint
     #[serde(default)]
     devin_api_key: Option<String>,
 }
@@ -47,21 +47,22 @@ impl zed::Extension for DeepWikiMcpExtension {
         let settings =
             ContextServerSettings::for_project("deepwiki-mcp-server-extension", project)?;
 
-        let config = if let Some(settings_value) = settings.settings {
-            serde_json::from_value(settings_value).unwrap_or_else(|_| {
-                DeepWikiContextServerSettings {
-                    endpoint: default_endpoint(),
-                    protocol: default_protocol(),
-                    devin_api_key: None,
-                }
-            })
-        } else {
-            DeepWikiContextServerSettings {
+        let config = settings.settings.map_or_else(
+            || DeepWikiContextServerSettings {
                 endpoint: default_endpoint(),
                 protocol: default_protocol(),
                 devin_api_key: None,
-            }
-        };
+            },
+            |settings_value| {
+                serde_json::from_value(settings_value).unwrap_or_else(|_| {
+                    DeepWikiContextServerSettings {
+                        endpoint: default_endpoint(),
+                        protocol: default_protocol(),
+                        devin_api_key: None,
+                    }
+                })
+            },
+        );
 
         // Validate configuration
         if config.endpoint.contains("mcp.devin.ai") && config.devin_api_key.is_none() {
