@@ -2,7 +2,13 @@
 
 This extension provides access to DeepWiki's documentation search capabilities through the Model Context Protocol (MCP).
 
+## Automatic Setup
+
+The extension automatically downloads and configures the required bridge binary when first used. No manual installation of additional components is required!
+
 ## Configuration
+
+The extension will automatically download the appropriate bridge binary for your platform (Linux, macOS, or Windows) from GitHub releases.
 
 ### Basic Setup (Free - Public Repositories Only)
 
@@ -58,9 +64,25 @@ For maximum compatibility, the SSE protocol is used by default.
 
 ## Troubleshooting
 
+### Common Issues
+
+- **Binary Download Failed**: Ensure you have internet connectivity and GitHub is accessible
+- **Permission Denied**: The extension automatically handles file permissions, but check if your system allows file downloads
+- **Wrong Architecture**: The extension automatically detects your platform, but you can check the logs if there are issues
+
+### Configuration Issues
+
 - Ensure your Devin API key is valid if using the authenticated endpoint
 - Check that the endpoint URL is correct for your chosen service
 - Verify that the protocol setting matches your client's capabilities
+
+### Manual Installation (Advanced)
+
+If automatic download fails, you can manually install the bridge binary:
+
+1. Download the appropriate binary from [GitHub Releases](https://github.com/keshav1998/deepwiki-mcp-server/releases)
+2. Extract and place it in your extension's `bin/` directory
+3. Make it executable (Unix systems): `chmod +x bin/deepwiki-mcp-bridge`
 
 For more information, visit:
 - [DeepWiki MCP Documentation](https://docs.devin.ai/work-with-devin/deepwiki-mcp)
