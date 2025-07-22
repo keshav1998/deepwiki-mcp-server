@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use zed::settings::ContextServerSettings;
 use zed_extension_api::{
-    self as zed, Command, ContextServerConfiguration, ContextServerId, Project, Result, serde_json,
+    self as zed, serde_json, Command, ContextServerConfiguration, ContextServerId, Project, Result,
 };
 
 struct DeepWikiMcpExtension;
@@ -81,7 +81,7 @@ impl zed::Extension for DeepWikiMcpExtension {
         }
 
         Ok(Command {
-            command: "./scripts/deepwiki-mcp-proxy.sh".to_string(),
+            command: "deepwiki-mcp-bridge".to_string(),
             args: vec![],
             env: env_vars,
         })
