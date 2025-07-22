@@ -35,8 +35,7 @@ venv/
 
 # Zed project specifics
 /.zed/*
-!.zed/*.rules
 
 # Ignore plan.rules everywhere
-plan.rules
+*.rules
 extension.wasm
