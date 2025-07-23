@@ -1,16 +1,17 @@
 [package]
-name = "deepwiki-mcp"
+name = "deepwiki-mcp-server"
 version = "0.1.0"
 edition = "2024"
+publish = false
+license = "Apache-2.0"
 
 [lib]
+path = "./src/lib.rs"
 crate-type = ["cdylib"]
 
+
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = "0.8"
 zed_extension_api = "0.6.0"
-reqwest = { version = "0.12", features = ["stream", "json"] }
-eventsource-client = "0.6"
-futures = "0.3"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-tokio = { version = "1.45.1", features = ["full"] }
