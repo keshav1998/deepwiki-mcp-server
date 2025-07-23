@@ -112,7 +112,7 @@ pre-push:
     # 🔍 Full workspace validation
     workspace-check:
       run: cargo check --workspace --all-targets --all-features
-      glob: ["./crates/"]
+      glob: ["./crates/**/*"]
       fail_text: |
         ❌ Full workspace check failed!
         💡 Fix compilation errors before pushing
@@ -121,7 +121,7 @@ pre-push:
     full-test:
       run: cargo test --workspace --all-targets --all-features --verbose
       glob:
-        - "./crates/"
+        - "./crates/**/*"
       fail_text: |
         ❌ Full test suite failed!
         💡 All tests must pass before pushing
@@ -129,7 +129,7 @@ pre-push:
     # 📚 Documentation check
     doc-check:
       run: cargo doc --no-deps --all-features --document-private-items
-      glob: ["./crates/", "./.github/"]
+      glob: ["./crates/**/*", "./.github/**/*"]
       fail_text: |
         ❌ Documentation generation failed!
         💡 Fix documentation errors and missing docs
@@ -137,7 +137,7 @@ pre-push:
     # 🔧 Clippy pedantic mode for thorough analysis
     clippy-pedantic:
       run: cargo clippy --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
-      glob: ["./crates/", "./.github/"]
+      glob: ["./crates/**/*", "./.github/**/*"]
       fail_text: |
         ❌ Pedantic clippy check failed!
         💡 Address additional clippy suggestions for code quality
