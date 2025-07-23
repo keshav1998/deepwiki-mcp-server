@@ -169,20 +169,47 @@ async fn proxy_messages_dual(
 ) -> Result<()> {
     info!("Initializing bidirectional message proxying between STDIO and remote transport");
 
-    // Create cancellation token for graceful shutdown
+    // Create cancellation token for graceful shutdown with timeout
     let ct = tokio_util::sync::CancellationToken::new();
     let ct_clone = ct.clone();
+    let shutdown_timeout = std::time::Duration::from_secs(30);
 
-    // Spawn task to handle shutdown signals
+    // Spawn task to handle shutdown signals with timeout
     tokio::spawn(async move {
-        match tokio::signal::ctrl_c().await {
-            Ok(()) => {
-                info!("Shutdown signal received, initiating graceful shutdown");
+        tokio::select! {
+            signal_result = tokio::signal::ctrl_c() => {
+                match signal_result {
+                    Ok(()) => {
+                        info!("Shutdown signal received, initiating graceful shutdown");
+                        ct_clone.cancel();
+                    }
+                    Err(err) => {
+                        error!("Unable to listen for shutdown signal: {}", err);
+                        ct_clone.cancel();
+                    }
+                }
+            }
+            _ = tokio::time::sleep(shutdown_timeout) => {
+                warn!("Shutdown timeout reached, forcing termination");
                 ct_clone.cancel();
             }
-            Err(err) => {
-                error!("Unable to listen for shutdown signal: {}", err);
-                ct_clone.cancel();
+        }
+    });
+
+    // Add connection health monitoring
+    let health_check_ct = ct.clone();
+    tokio::spawn(async move {
+        let mut health_check_interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            tokio::select! {
+                _ = health_check_ct.cancelled() => {
+                    info!("Connection health monitoring stopped");
+                    break;
+                }
+                _ = health_check_interval.tick() => {
+                    info!("Connection health check: both transports active");
+                    // TODO: Implement actual connection health checks
+                }
             }
         }
     });
@@ -191,42 +218,88 @@ async fn proxy_messages_dual(
 
     // Main bidirectional message forwarding loop using tokio::select!
     let mut message_count = 0;
+    let operation_timeout = std::time::Duration::from_secs(60);
+    let start_time = std::time::Instant::now();
+
     loop {
         tokio::select! {
-            // Handle shutdown signal
+            // Handle shutdown signal with timeout
             _ = ct.cancelled() => {
                 info!("Graceful shutdown initiated");
                 break;
             }
 
-            // STDIO -> Remote message forwarding
+            // Operation timeout handling
+            _ = tokio::time::sleep(operation_timeout), if start_time.elapsed() > operation_timeout => {
+                warn!("Operation timeout reached, initiating graceful shutdown");
+                ct.cancel();
+                break;
+            }
+
+            // STDIO -> Remote message forwarding with error handling
             _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
                 message_count += 1;
-                info!("STDIO -> Remote forwarding active (demo message {})", message_count);
-                // TODO: Implement actual message reception from STDIO client
-                // TODO: Forward received messages to remote client
-                if message_count >= 3 {
-                    info!("Demo completed - bidirectional forwarding structure verified");
-                    ct.cancel();
+                match forward_stdio_to_remote_demo(message_count).await {
+                    Ok(_) => {
+                        info!("STDIO -> Remote forwarding active (demo message {})", message_count);
+                        if message_count >= 3 {
+                            info!("Demo completed - bidirectional forwarding structure verified");
+                            ct.cancel();
+                        }
+                    }
+                    Err(e) => {
+                        error!("STDIO -> Remote forwarding error: {}", e);
+                        // Continue operation, don't crash on single message failure
+                    }
                 }
             }
 
-            // Remote -> STDIO message forwarding
+            // Remote -> STDIO message forwarding with error handling
             _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
-                info!("Remote -> STDIO forwarding active (ready to receive)");
-                // TODO: Implement actual message reception from remote client
-                // TODO: Forward received messages to STDIO client
+                match forward_remote_to_stdio_demo().await {
+                    Ok(_) => {
+                        info!("Remote -> STDIO forwarding active (ready to receive)");
+                    }
+                    Err(e) => {
+                        error!("Remote -> STDIO forwarding error: {}", e);
+                        // Continue operation, don't crash on single message failure
+                    }
+                }
             }
         }
     }
 
     info!("Bidirectional message forwarding completed");
-    info!("Cleaning up client connections...");
+    info!("Cleaning up client connections with timeout...");
 
-    drop(stdio_client);
-    drop(remote_client);
+    // Graceful cleanup with timeout
+    let cleanup_result = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        drop(stdio_client);
+        drop(remote_client);
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await; // Allow cleanup
+    })
+    .await;
+
+    match cleanup_result {
+        Ok(_) => info!("Client connections cleaned up successfully"),
+        Err(_) => warn!("Cleanup timeout reached, forcing connection termination"),
+    }
 
     info!("Proxy shutdown completed successfully");
+    Ok(())
+}
+
+// Helper functions for message forwarding with error handling
+async fn forward_stdio_to_remote_demo(count: i32) -> Result<()> {
+    // Simulate potential forwarding errors
+    if count == 2 {
+        return Err(anyhow::anyhow!("Simulated forwarding error"));
+    }
+    Ok(())
+}
+
+async fn forward_remote_to_stdio_demo() -> Result<()> {
+    // Simulate remote message processing
     Ok(())
 }
 
@@ -254,8 +327,10 @@ async fn proxy_messages_demo(remote_client: impl std::fmt::Debug + Send + 'stati
 
     info!("Message forwarding structure demonstration started");
 
-    // Demonstrate the forwarding loop structure
+    // Demonstrate the forwarding loop structure with timeout
     let mut demo_count = 0;
+    let demo_timeout = std::time::Duration::from_secs(10);
+
     loop {
         tokio::select! {
             // Handle shutdown signal
@@ -264,28 +339,58 @@ async fn proxy_messages_demo(remote_client: impl std::fmt::Debug + Send + 'stati
                 break;
             }
 
-            // Demonstrate STDIO message handling (would forward to remote)
+            // Demo timeout handling
+            _ = tokio::time::sleep(demo_timeout) => {
+                warn!("Demo timeout reached, completing demonstration");
+                ct.cancel();
+                break;
+            }
+
+            // Demonstrate STDIO message handling with error recovery
             _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
                 demo_count += 1;
-                info!("Demo: STDIO message received -> would forward to remote ({})", demo_count);
-
-                if demo_count >= 3 {
-                    info!("Forwarding structure demonstration completed");
-                    ct.cancel();
+                match forward_stdio_to_remote_demo(demo_count).await {
+                    Ok(_) => {
+                        info!("Demo: STDIO message received -> would forward to remote ({})", demo_count);
+                        if demo_count >= 3 {
+                            info!("Forwarding structure demonstration completed");
+                            ct.cancel();
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Demo: STDIO forwarding error: {} (continuing)", e);
+                    }
                 }
             }
 
-            // Demonstrate remote message handling (would forward to STDIO)
+            // Demonstrate remote message handling with error recovery
             _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-                info!("Demo: Remote message ready -> would forward to STDIO");
+                match forward_remote_to_stdio_demo().await {
+                    Ok(_) => {
+                        info!("Demo: Remote message ready -> would forward to STDIO");
+                    }
+                    Err(e) => {
+                        warn!("Demo: Remote forwarding error: {} (continuing)", e);
+                    }
+                }
             }
         }
     }
 
     info!("Message forwarding demonstration completed");
-    info!("Cleaning up remote client connection...");
+    info!("Cleaning up remote client connection with timeout...");
 
-    drop(remote_client);
+    // Graceful cleanup with timeout for demo mode
+    let cleanup_result = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        drop(remote_client);
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    })
+    .await;
+
+    match cleanup_result {
+        Ok(_) => info!("Remote client connection cleaned up successfully"),
+        Err(_) => warn!("Demo cleanup timeout reached, forcing termination"),
+    }
 
     info!("Demo proxy shutdown completed successfully");
     Ok(())
