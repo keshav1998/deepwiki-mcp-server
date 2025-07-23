@@ -1,3 +1,4 @@
+// Test comment to trigger Lefthook hooks
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;

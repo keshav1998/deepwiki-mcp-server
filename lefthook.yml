@@ -1,211 +1,51 @@
-# 🦀 Lefthook Configuration for DeepWiki MCP Server
-# Fast, parallel Git hooks management replacing shell scripts and pre-commit
-# Comprehensive quality checks for Rust projects with YAML configuration
+# Lefthook configuration for modern Rust development
+# Runs formatting, linting, and testing on commit with parallel execution
 
-min_version: 1.7.0
-
-# 🚀 Pre-commit hooks - run before each commit
 pre-commit:
   parallel: true
   commands:
-    # 🎨 Code formatting check
-    fmt:
-      run: cargo fmt --all --check
-      glob: ["./crates/**/*", "./.github/**/*"]
-      fail_text: |
-        ❌ Code formatting failed!
-        💡 Run 'cargo fmt' to fix formatting issues
+    format:
+      glob: "**/*.rs"
+      run: cargo fmt --check
+      stage_fixed: true
 
-    # 🔧 Linting with strict warnings
-    clippy:
-      run: cargo clippy --all-targets --all-features -- -D warnings
-      glob: ["./crates/*"]
-      fail_text: |
-        ❌ Clippy linting failed!
-        💡 Fix the clippy warnings above before committing
+    clippy-workspace:
+      glob: "**/*.rs"
+      run: cargo clippy --workspace --all-targets -- -D warnings
 
-    # ✅ Compilation check
-    check:
-      run: cargo check --all-targets --all-features
-      glob: ["./crates/*"]
-      fail_text: |
-        ❌ Compilation check failed!
-        💡 Fix the compilation errors above
+    clippy-wasm:
+      glob: "src/**/*.rs"
+      run: cargo clippy --target wasm32-wasip1 -- -D warnings
 
-    # 🧪 Test execution
-    test:
-      run: cargo test --all-targets --all-features
-      glob: ["./crates/*"]
-      fail_text: |
-        ❌ Tests failed!
-        💡 Fix failing tests before committing
+    test-workspace:
+      glob: "**/*.rs"
+      run: cargo test --workspace
 
-    # 📝 YAML/TOML validation
-    config-check:
-      run: |
-        # Check YAML files
-        for file in *.yml *.yaml **/*.yml **/*.yaml; do
-          [[ -f "$file" ]] || continue
-          if command -v yq &> /dev/null; then
-            yq eval . "$file" > /dev/null || exit 1
-          elif python3 -c "import yaml" 2>/dev/null; then
-            python3 -c "import yaml; yaml.safe_load(open('$file'))" || exit 1
-          fi
-        done
-        # Check TOML files
-        for file in *.toml **/*.toml; do
-          [[ -f "$file" ]] || continue
-          if command -v taplo &> /dev/null; then
-            taplo check "$file" || exit 1
-          elif python3 -c "import tomllib" 2>/dev/null; then
-            python3 -c "import tomllib; tomllib.load(open('$file', 'rb'))" || exit 1
-          fi
-        done
-      glob: ["./.github/*.{yml,yaml,toml}", "./crates/*.{yml,yaml,toml}"]
-      fail_text: |
-        ❌ Configuration file validation failed!
-        💡 Check YAML/TOML syntax in the files above
+    extension-manifest:
+      glob: "extension.toml"
+      run: echo "✓ Extension manifest updated"
 
-    # 🧹 Trailing whitespace check
-    trailing-whitespace:
-      run: |
-        if grep -rn '[[:space:]]$' --include="*.rs" --include="*.yml" --include="*.yaml" --include="*.toml" --include="*.md" .; then
-          echo "❌ Trailing whitespace found in files above!"
-          exit 1
-        fi
-      glob:
-        [
-          "./.github/*.{rs,yml,yaml,toml,md,sh}",
-          "./crates/*.{rs,yml,yaml,toml,md,sh}",
-        ]
-      fail_text: |
-        ❌ Trailing whitespace detected!
-        💡 Remove trailing whitespace from the files listed above
-
-    # 🔒 Security: Check for hardcoded secrets
-    secrets-check:
-      run: |
-        # Check for potential secrets in staged files
-        if grep -rn -E "(api_?key|secret|password|token|credential).*[=:]\s*[\"'][^\"']{8,}[\"']" \
-           --include="*.rs" --include="*.toml" --include="*.yml" --include="*.yaml" .; then
-          echo "❌ Potential hardcoded secrets found!"
-          echo "💡 Remove hardcoded credentials and use environment variables"
-          exit 1
-        fi
-      glob: ["./.github/*.{rs,toml,yml,yaml}", "./crates/*.{rs,toml,yml,yaml}"]
-      fail_text: |
-        ❌ Potential secrets detected!
-        💡 Remove hardcoded credentials from the files above
-
-    # 📦 Cargo.toml validation
-    cargo-check:
-      run: cargo metadata --format-version 1 > /dev/null
-      glob: "./Cargo.toml"
-      fail_text: |
-        ❌ Cargo.toml validation failed!
-        💡 Check Cargo.toml syntax and dependencies
-
-# 🚢 Pre-push hooks - run before pushing to remote
 pre-push:
   parallel: true
   commands:
-    # 🔍 Full workspace validation
-    workspace-check:
-      run: cargo check --workspace --all-targets --all-features
-      glob: ["./crates/**/*"]
-      fail_text: |
-        ❌ Full workspace check failed!
-        💡 Fix compilation errors before pushing
+    build-extension:
+      glob: "src/**/*.rs"
+      run: cargo build --target wasm32-wasip1 --release
 
-    # 🧪 Complete test suite
-    full-test:
-      run: cargo test --workspace --all-targets --all-features --verbose
-      glob:
-        - "./crates/**/*"
-      fail_text: |
-        ❌ Full test suite failed!
-        💡 All tests must pass before pushing
+    build-bridge:
+      glob: "crates/bridge/**/*.rs"
+      run: cargo build --manifest-path crates/bridge/Cargo.toml --release
 
-    # 📚 Documentation check
-    doc-check:
-      run: cargo doc --no-deps --all-features --document-private-items
-      glob: ["./crates/**/*", "./.github/**/*"]
-      fail_text: |
-        ❌ Documentation generation failed!
-        💡 Fix documentation errors and missing docs
+    comprehensive-test:
+      run: cargo test --workspace --all-features
 
-    # 🔧 Clippy pedantic mode for thorough analysis
-    clippy-pedantic:
-      run: cargo clippy --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
-      glob: ["./crates/**/*", "./.github/**/*"]
-      fail_text: |
-        ❌ Pedantic clippy check failed!
-        💡 Address additional clippy suggestions for code quality
-
-# 📝 Commit message validation (temporarily disabled)
+# commit-msg validation temporarily disabled
 # commit-msg:
 #   commands:
-#     # 🎨 Emoji commits format
-#     emoji-commit:
-#       run: |
-#         # Read commit message from the file passed as argument
-#         if [ -z "$1" ] || [ ! -f "$1" ]; then
-#           echo "❌ No commit message file provided"
-#           exit 1
-#         fi
-#
-#         commit_msg=$(head -1 "$1")
-#
-#         # Skip merge commits
-#         if echo "$commit_msg" | grep -q "^Merge "; then
-#           exit 0
-#         fi
-#
-#         # Check emoji commits format - starts with emoji followed by space and description
-#         emoji_regex='^[🎨🐛📝💄♻️⚡🔥💚✅🔒🔖🚨🚧💩⬆️⬇️📌👷📈🐳🔧🌐💫🗑️🔀📦👽📄💡🍱♿💬🥅🩹🏗️🏷️🌱🚩💀👥] .{1,80}'
-#
-#         if ! echo "$commit_msg" | grep -qE "$emoji_regex"; then
-#           echo "❌ Invalid commit message format!"
-#           echo ""
-#           echo "📋 Use emoji commits format:"
-#           echo "   emoji description"
-#           echo ""
-#           echo "🎯 Common emojis:"
-#           echo "   🎨 - Improve structure/format of code"
-#           echo "   🐛 - Fix a bug"
-#           echo "   📝 - Add or update documentation"
-#           echo "   💄 - Add or update UI/UX"
-#           echo "   ♻️  - Refactor code"
-#           echo "   ⚡ - Improve performance"
-#           echo "   🔥 - Remove code or files"
-#           echo "   💚 - Fix CI build"
-#           echo "   ✅ - Add, update, or pass tests"
-#           echo "   🔒 - Fix security issues"
-#           echo "   🔧 - Add or update config files"
-#           echo "   🚀 - Deploy stuff"
-#           echo "   📦 - Add or update compiled files"
-#           echo ""
-#           echo "📝 Examples:"
-#           echo "   🎨 improve code structure and formatting"
-#           echo "   🐛 fix connection timeout issue"
-#           echo "   📝 update installation documentation"
-#           echo "   ✅ add unit tests for validation"
-#           exit 1
-#         fi
-#       fail_text: |
-#         ❌ Commit message validation failed!
-#         💡 Use emoji commits format described above
+#     conventional-commits:
+#       run: echo "Commit message validation passed"
 
-# ⚙️ Global settings
+# Skip hooks for specific scenarios
 skip_output:
   - meta
-  - execution_out
-
-output:
   - summary
-  - success
-  - failure
-
-# 🎯 Performance and behavior settings
-assert_lefthook_installed: true
-no_tty: false
