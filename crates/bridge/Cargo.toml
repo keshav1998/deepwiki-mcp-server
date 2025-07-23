@@ -1,11 +1,11 @@
 [package]
 name = "deepwiki-mcp-bridge"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
+version = "0.1.0"
+edition = "2021"
+authors = ["Keshav Mishra <me@kmsh.dev>"]
 description = "DeepWiki MCP Proxy - Minimal proxy using official rust-sdk for Zed context servers"
-repository.workspace = true
-license.workspace = true
+repository = "https://github.com/keshav1998/deepwiki-mcp-server"
+license = "MIT"
 
 [[bin]]
 name = "deepwiki-mcp-bridge"
@@ -37,6 +37,3 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [features]
 default = []
-
-[lints]
-workspace = true

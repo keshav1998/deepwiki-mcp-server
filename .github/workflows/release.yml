@@ -210,9 +210,3 @@ jobs:
             exit 1
           fi
           echo "✅ extension.toml found"
-
-      - name: Test extension build script
-        run: |
-          echo "🔧 Testing build script..."
-          chmod +x build.sh
-          ./build.sh

@@ -37,8 +37,7 @@ impl zed::Extension for DeepWikiMcpExtension {
         let bridge_path = self.ensure_bridge_binary()?;
 
         // Get user settings or use defaults
-        let settings =
-            ContextServerSettings::for_project("deepwiki-mcp-server-extension", project)?;
+        let settings = ContextServerSettings::for_project("deepwiki-mcp-server", project)?;
 
         let config = settings.settings.map_or_else(
             || DeepWikiContextServerSettings {
@@ -70,7 +69,7 @@ impl zed::Extension for DeepWikiMcpExtension {
         let installation_instructions =
             include_str!("../configuration/installation_instructions.md").to_string();
 
-        let settings = ContextServerSettings::for_project("deepwiki-mcp-server-extension", project);
+        let settings = ContextServerSettings::for_project("deepwiki-mcp-server", project);
 
         let mut default_settings =
             include_str!("../configuration/default_settings.jsonc").to_string();

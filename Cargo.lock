@@ -233,7 +233,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "deepwiki-mcp-server-extension"
+name = "deepwiki-mcp-server"
 version = "0.1.0"
 dependencies = [
  "schemars",
