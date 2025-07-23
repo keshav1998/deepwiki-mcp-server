@@ -292,9 +292,11 @@ async fn proxy_messages_dual(
 }
 
 // Helper functions for message forwarding with error handling
+const SIMULATED_ERROR_COUNT: i32 = 2;
+
 fn forward_stdio_to_remote_demo(count: i32) -> Result<()> {
     // Simulate potential forwarding errors
-    if count == 2 {
+    if count == SIMULATED_ERROR_COUNT {
         return Err(anyhow::anyhow!("Simulated forwarding error"));
     }
     Ok(())
