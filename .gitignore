@@ -39,3 +39,6 @@ venv/
 # Ignore plan.rules everywhere
 *.rules
 extension.wasm
+
+rust-sdk/
+mcp-proxy/
