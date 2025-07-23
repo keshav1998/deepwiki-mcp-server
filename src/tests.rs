@@ -233,17 +233,17 @@ mod unit_tests {
     #[test]
     fn test_binary_name_logic() {
         // Test binary name logic without calling Zed API
-        // On Windows: deepwiki-mcp-bridge.exe
-        // On other platforms: deepwiki-mcp-bridge
+        // On Windows: zed-mcp-proxy.exe
+        // On other platforms: zed-mcp-proxy
 
         #[cfg(target_os = "windows")]
-        let expected = "deepwiki-mcp-bridge.exe";
+        let expected = "zed-mcp-proxy.exe";
 
         #[cfg(not(target_os = "windows"))]
-        let expected = "deepwiki-mcp-bridge";
+        let expected = "zed-mcp-proxy";
 
         // Verify the expected name pattern is correct
-        assert!(expected.starts_with("deepwiki-mcp-bridge"));
+        assert!(expected.starts_with("zed-mcp-proxy"));
 
         #[cfg(target_os = "windows")]
         assert!(expected.ends_with(".exe"));
@@ -263,22 +263,22 @@ mod unit_tests {
             (
                 Os::Mac,
                 Architecture::Aarch64,
-                "deepwiki-mcp-bridge-aarch64-apple-darwin.tar.gz",
+                "zed-mcp-proxy-aarch64-apple-darwin.tar.gz",
             ),
             (
                 Os::Mac,
                 Architecture::X8664,
-                "deepwiki-mcp-bridge-x86_64-apple-darwin.tar.gz",
+                "zed-mcp-proxy-x86_64-apple-darwin.tar.gz",
             ),
             (
                 Os::Linux,
                 Architecture::X8664,
-                "deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz",
+                "zed-mcp-proxy-x86_64-unknown-linux-gnu.tar.gz",
             ),
             (
                 Os::Windows,
                 Architecture::X8664,
-                "deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip",
+                "zed-mcp-proxy-x86_64-pc-windows-msvc.zip",
             ),
         ];
 

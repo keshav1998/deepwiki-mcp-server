@@ -129,7 +129,7 @@ impl DeepWikiMcpExtension {
 
         // Get the latest release
         let release = latest_github_release(
-            "keshav1998/deepwiki-mcp-server",
+            "keshav1998/zed-mcp-proxy",
             GithubReleaseOptions {
                 require_assets: true,
                 pre_release: false,
@@ -184,8 +184,8 @@ impl DeepWikiMcpExtension {
     fn get_binary_name() -> String {
         let (os, _) = current_platform();
         match os {
-            Os::Windows => "deepwiki-mcp-bridge.exe".to_string(),
-            _ => "deepwiki-mcp-bridge".to_string(),
+            Os::Windows => "zed-mcp-proxy.exe".to_string(),
+            _ => "zed-mcp-proxy".to_string(),
         }
     }
 
@@ -203,10 +203,10 @@ impl DeepWikiMcpExtension {
             Architecture::X8664 => "x86_64",
         };
 
-        // Asset naming pattern: deepwiki-mcp-bridge-{arch}-{os}.{ext}
+        // Asset naming pattern: zed-mcp-proxy-{arch}-{os}.{ext}
         let extension = if os == Os::Windows { "zip" } else { "tar.gz" };
 
-        format!("deepwiki-mcp-bridge-{arch_str}-{os_str}.{extension}")
+        format!("zed-mcp-proxy-{arch_str}-{os_str}.{extension}")
     }
 
     /// Get the appropriate file type for `download_file`

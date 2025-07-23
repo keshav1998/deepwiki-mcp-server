@@ -4,25 +4,25 @@ A **Model Context Protocol (MCP) server extension** for the Zed IDE that provide
 
 ## 🏗️ Architecture
 
-This extension uses a **two-part architecture** with automatic binary download:
+This extension uses a **separated architecture** with automatic binary download:
 
 ```
-Zed ↔ Extension (WASM) → Auto-Downloaded Bridge (Native) ↔ HTTP MCP Server
+Zed ↔ Extension (WASM) → Auto-Downloaded Proxy (Native) ↔ HTTP MCP Server
 ```
 
 ### Components
 
-1. **Extension (WASM)** - `crates/extension/`
+1. **Extension (WASM)** - This repository
    - Lightweight Zed extension compiled to WebAssembly
-   - Automatically downloads platform-specific bridge binary
+   - Automatically downloads platform-specific proxy binary
    - Provides configuration UI and command setup
    - No async/HTTP dependencies (WASM-compatible)
 
-2. **Bridge Binary (Native)** - `crates/bridge/`
-   - Auto-downloaded from GitHub releases per platform
+2. **Proxy Binary (Native)** - [zed-mcp-proxy](https://github.com/keshav1998/zed-mcp-proxy)
+   - Auto-downloaded from separate repository releases
    - Full HTTP/async capabilities with tokio and reqwest
    - Translates between STDIO (Zed) and HTTP (DeepWiki/Devin)
-   - Handles MCP protocol communication
+   - Handles MCP protocol communication with official Rust MCP SDK
 
 ## 🚀 Features
 
@@ -33,6 +33,7 @@ Zed ↔ Extension (WASM) → Auto-Downloaded Bridge (Native) ↔ HTTP MCP Server
 - **Secure Authentication**: Environment variable-based API key handling
 - **Protocol Compliance**: Full MCP (Model Context Protocol) support
 - **Cross-Platform**: Supports Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), Windows
+- **Separated Concerns**: Extension focuses on Zed integration, proxy handles MCP protocol
 
 ## 🛠️ Installation
 
@@ -41,6 +42,7 @@ Zed ↔ Extension (WASM) → Auto-Downloaded Bridge (Native) ↔ HTTP MCP Server
 - Rust toolchain (latest stable)
 - Zed IDE
 - WASM target: `rustup target add wasm32-wasip1`
+- The proxy binary is downloaded automatically - no separate installation needed
 
 ### Install from Zed Extensions Registry (Recommended)
 
@@ -50,7 +52,7 @@ Zed ↔ Extension (WASM) → Auto-Downloaded Bridge (Native) ↔ HTTP MCP Server
 4. **Search for**: "DeepWiki MCP"
 5. **Click Install**
 
-The extension will automatically download the appropriate bridge binary for your platform when first used.
+The extension will automatically download the appropriate proxy binary from the [zed-mcp-proxy repository](https://github.com/keshav1998/zed-mcp-proxy) for your platform when first used.
 
 ### Build from Source (Advanced)
 
@@ -62,16 +64,15 @@ If you want to build from source:
    cd deepwiki-mcp-server
    ```
 
-2. **Build everything**:
+2. **Build the extension**:
    ```bash
-   ./build.sh
+   cargo build --target wasm32-wasip1 --release
    ```
 
-3. **Install manually in Zed**:
-   ```bash
-   # Copy to Zed extensions directory
-   cp -r dist/* ~/.config/zed/extensions/deepwiki-mcp-server/
-   ```
+3. **Install as dev extension**:
+   - In Zed, use "Extensions: Install Dev Extension"
+   - Select this project directory
+   - The proxy binary will be downloaded automatically on first use
 
 ## ⚙️ Configuration
 
@@ -118,33 +119,32 @@ export DEVIN_API_KEY="your-api-key-here"
 
 ```
 deepwiki-mcp-server/
-├── crates/
-│   ├── extension/          # Zed WASM extension
-│   │   ├── src/
-│   │   │   ├── lib.rs     # Extension implementation
-│   │   │   └── tests.rs   # Extension tests
-│   │   └── configuration/ # UI configuration files
-│   └── bridge/            # Native bridge binary
-│       └── src/
-│           ├── main.rs    # Bridge entry point
-│           └── mcp_bridge/ # MCP protocol implementation
+├── src/
+│   ├── lib.rs             # Extension implementation
+│   └── tests.rs           # Extension tests
+├── configuration/         # UI configuration files
 ├── extension.toml         # Zed extension manifest
-├── build.sh              # Build script
-└── scripts/              # Legacy shell scripts (deprecated)
+├── lefthook.yml          # Git hooks configuration
+├── BUILD.md              # Build instructions
+└── Cargo.toml            # Package configuration
 ```
 
-### Building Individual Components
+**Note**: The proxy binary is maintained in a separate repository: [zed-mcp-proxy](https://github.com/keshav1998/zed-mcp-proxy)
+
+### Building the Extension
 
 ```bash
 # Build extension (WASM)
-cargo build --manifest-path crates/extension/Cargo.toml --target wasm32-wasip1
+cargo build --target wasm32-wasip1 --release
 
-# Build bridge (native)
-cargo build --manifest-path crates/bridge/Cargo.toml --release
+# Development build
+cargo build --target wasm32-wasip1
 
 # Run tests
-cargo test --workspace
+cargo test
 ```
+
+See [BUILD.md](BUILD.md) for detailed build instructions and modern Rust development practices.
 
 ### Code Quality
 
@@ -152,11 +152,11 @@ cargo test --workspace
 # Format code
 cargo fmt --all
 
-# Run clippy
-cargo clippy --workspace --tests -- -D warnings
+# Run clippy (WASM-specific)
+cargo clippy --target wasm32-wasip1 -- -D warnings
 
 # Fix clippy issues automatically
-cargo clippy --fix --allow-dirty --allow-staged --workspace
+cargo clippy --fix --allow-dirty --allow-staged --target wasm32-wasip1
 ```
 
 ## 🏃‍♂️ Usage
@@ -195,14 +195,14 @@ This extension implements the full **Model Context Protocol v2024-11-05** specif
 ### Common Issues
 
 1. **Automatic download failed**:
-   - Check internet connectivity and GitHub access
+   - Check internet connectivity and GitHub access to zed-mcp-proxy repository
    - Restart Zed to retry the download
    - Check Zed's extension logs for details
 
-2. **Bridge binary not working**:
-   - The extension automatically handles binary installation
+2. **Proxy binary not working**:
+   - The extension automatically handles binary installation from zed-mcp-proxy releases
    - If issues persist, try reinstalling the extension
-   - Check platform compatibility (Linux, macOS, Windows supported)
+   - Check platform compatibility (Linux x86_64/ARM64, macOS Intel/Apple Silicon, Windows x86_64)
 
 3. **Authentication errors**:
    ```bash
@@ -210,10 +210,10 @@ This extension implements the full **Model Context Protocol v2024-11-05** specif
    # Verify endpoint configuration
    ```
 
-4. **Manual installation needed**:
+4. **Manual proxy installation needed**:
    ```bash
-   # Download from: https://github.com/keshav1998/deepwiki-mcp-server/releases
-   # Extract to extension's bin/ directory
+   # Download from: https://github.com/keshav1998/zed-mcp-proxy/releases
+   # Extract to extension's bin/ directory as 'zed-mcp-proxy' (or 'zed-mcp-proxy.exe' on Windows)
    # Extension handles the rest automatically
    ```
 
@@ -237,6 +237,7 @@ We welcome contributions! Please see our development guidelines:
 - **Rust Best Practices**: Follow Rust API guidelines
 - **Security First**: No hardcoded secrets, validate inputs
 - **WASM Compatibility**: Keep extension dependencies minimal
+- **Separation of Concerns**: Extension for Zed integration, proxy for MCP protocol
 - **Type Safety**: Use strong typing throughout
 - **Error Handling**: Comprehensive error handling with context
 
@@ -246,8 +247,12 @@ We welcome contributions! Please see our development guidelines:
 2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
 3. **Make changes following our coding standards**
 4. **Add tests for new functionality**
-5. **Run the full test suite**: `cargo test --workspace`
+5. **Run the full test suite**: `cargo test`
 6. **Submit a pull request**
+
+### Proxy Development
+
+For changes to the MCP proxy functionality, contribute to the [zed-mcp-proxy repository](https://github.com/keshav1998/zed-mcp-proxy).
 
 ## 📄 License
 
