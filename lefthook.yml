@@ -120,6 +120,8 @@ pre-push:
     # 🧪 Complete test suite
     full-test:
       run: cargo test --workspace --all-targets --all-features --verbose
+      glob:
+        - "./crates/"
       fail_text: |
         ❌ Full test suite failed!
         💡 All tests must pass before pushing
