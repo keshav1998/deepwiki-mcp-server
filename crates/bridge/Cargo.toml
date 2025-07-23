@@ -12,33 +12,37 @@ name = "deepwiki-mcp-bridge"
 path = "src/main.rs"
 
 [dependencies]
-# Core async runtime
-tokio = { version = "1.0", features = ["full"] }
-anyhow = "1.0"
-thiserror = "1.0"
+# Official Rust MCP SDK
+rmcp = { version = "0.2.0", features = [
+    "client",
+    "transport-io",
+    "transport-streamable-http-client",
+    "transport-sse-client",
+    "auth",
+    "reqwest",
+] }
 
-# HTTP client
+# Core dependencies (simplified - many provided by rmcp)
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+# Temporary dependencies for existing bridge code (to be removed)
+thiserror = "1.0"
 reqwest = { version = "0.12", features = [
     "json",
     "rustls-tls",
 ], default-features = false }
-
-# JSON handling
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-# Async utilities
 futures = "0.3"
 tokio-util = { version = "0.7", features = ["codec"] }
+uuid = { version = "1.0", features = ["v4"] }
+url = "2.5"
+bytes = "1.0"
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-# Utilities
-uuid = { version = "1.0", features = ["v4"] }
-url = "2.5"
-bytes = "1.0"
 
 [features]
 default = []
