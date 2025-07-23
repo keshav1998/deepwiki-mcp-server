@@ -7,7 +7,9 @@
 use anyhow::Result;
 use rmcp::{
     model::{ClientCapabilities, ClientInfo, Implementation},
-    transport::{auth::AuthorizationManager, SseClientTransport, StreamableHttpClientTransport},
+    transport::{
+        auth::AuthorizationManager, stdio, SseClientTransport, StreamableHttpClientTransport,
+    },
     ServiceExt,
 };
 use std::env;
@@ -76,7 +78,7 @@ fn print_usage(program_name: &str) {
     eprintln!("    OAuth2 authentication is handled automatically when required");
 }
 
-/// Transport wrapper enum to handle different transport types
+/// Transport wrapper enum to handle different remote transport types
 enum McpTransport {
     Http(StreamableHttpClientTransport<reqwest::Client>),
     Sse(SseClientTransport<reqwest::Client>),
@@ -96,8 +98,8 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
     // Detect and create transport based on URL pattern
     let remote_transport = create_transport(endpoint_url, needs_auth).await?;
 
-    // Create client info for MCP connection
-    let client_info = ClientInfo {
+    // Create client info template for MCP connections
+    let create_client_info = || ClientInfo {
         protocol_version: rmcp::model::ProtocolVersion::default(),
         capabilities: ClientCapabilities::default(),
         client_info: Implementation {
@@ -109,27 +111,50 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
     info!("Creating MCP client with remote transport...");
 
     // Test the connection by creating a client (simplified approach)
-    match remote_transport {
+    let _remote_client = match remote_transport {
         McpTransport::Http(transport) => {
             info!("Testing HTTP connection to MCP server");
-            let _client = client_info.serve(transport).await.map_err(|e| {
+            let client = create_client_info().serve(transport).await.map_err(|e| {
                 error!("Failed to connect via HTTP: {}", e);
                 anyhow::anyhow!("HTTP connection failed: {}", e)
             })?;
             info!("HTTP connection established successfully");
+            client
         }
         McpTransport::Sse(transport) => {
             info!("Testing SSE connection to MCP server");
-            let _client = client_info.serve(transport).await.map_err(|e| {
+            let client = create_client_info().serve(transport).await.map_err(|e| {
                 error!("Failed to connect via SSE: {}", e);
                 anyhow::anyhow!("SSE connection failed: {}", e)
             })?;
             info!("SSE connection established successfully");
+            client
         }
-    }
+    };
 
-    info!("Transport connection verified successfully");
-    info!("STDIO integration and message proxying will be implemented in next task");
+    info!("Remote transport connection verified successfully");
+
+    // Create STDIO transport for Zed communication
+    info!("Creating STDIO transport for Zed communication...");
+    let stdio_transport = stdio();
+    info!("STDIO transport created successfully");
+
+    // Create STDIO client connection using a separate client info instance
+    info!("Establishing STDIO client connection...");
+    let _stdio_client = match create_client_info().serve(stdio_transport).await {
+        Ok(client) => {
+            info!("STDIO client connection established successfully");
+            client
+        }
+        Err(e) => {
+            error!("Failed to establish STDIO client connection: {}", e);
+            return Err(anyhow::anyhow!("STDIO client connection failed: {}", e));
+        }
+    };
+
+    info!("STDIO transport integration completed successfully");
+    info!("Both STDIO and remote transport connections established");
+    info!("Bidirectional message proxying will be implemented in next task");
 
     // TODO: Implement bidirectional message proxying between STDIO and remote transport
     // TODO: Handle MCP protocol message forwarding
