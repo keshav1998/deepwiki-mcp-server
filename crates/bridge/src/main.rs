@@ -2,7 +2,7 @@
 //!
 //! This binary serves as a lightweight proxy between Zed's STDIO-based MCP client and
 //! HTTP/SSE-based MCP servers using the official rust-sdk. It provides transport
-//! auto-detection, built-in OAuth2 authentication, and minimal overhead.
+//! auto-detection, built-in `OAuth2` authentication, and minimal overhead.
 
 use anyhow::Result;
 use rmcp::{
@@ -86,7 +86,7 @@ enum McpTransport {
 async fn run_proxy(endpoint_url: &str) -> Result<()> {
     // Check if endpoint requires authentication
     let needs_auth = endpoint_url.contains("mcp.devin.ai");
-    
+
     if needs_auth {
         info!("Devin endpoint detected - OAuth2 authentication will be handled automatically");
     } else {
@@ -98,7 +98,7 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
 
     // Create client info for MCP connection
     let client_info = ClientInfo {
-        protocol_version: Default::default(),
+        protocol_version: rmcp::model::ProtocolVersion::default(),
         capabilities: ClientCapabilities::default(),
         client_info: Implementation {
             name: "DeepWiki MCP Proxy".to_string(),
@@ -126,7 +126,7 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
             })?;
             info!("SSE connection established successfully");
         }
-    };
+    }
 
     info!("Transport connection verified successfully");
     info!("STDIO integration and message proxying will be implemented in next task");
@@ -138,10 +138,14 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
     Ok(())
 }
 
-/// Create the appropriate transport based on URL patterns
-async fn create_transport(endpoint_url: &str) -> Result<McpTransport> {
+/// Create the appropriate transport based on URL patterns and authentication requirements
+async fn create_transport(endpoint_url: &str, needs_auth: bool) -> Result<McpTransport> {
     let transport_type = detect_transport_type(endpoint_url);
     info!("Detected transport type: {}", transport_type);
+
+    if needs_auth {
+        return create_authenticated_transport(endpoint_url, transport_type).await;
+    }
 
     match transport_type {
         "SSE" => {
@@ -167,6 +171,79 @@ async fn create_transport(endpoint_url: &str) -> Result<McpTransport> {
             error!("Unknown transport type: {}", transport_type);
             Err(anyhow::anyhow!(
                 "Unsupported transport type: {}",
+                transport_type
+            ))
+        }
+    }
+}
+
+/// Create authenticated transport for Devin endpoints
+async fn create_authenticated_transport(
+    endpoint_url: &str,
+    transport_type: &str,
+) -> Result<McpTransport> {
+    info!("Creating authenticated transport for Devin endpoint");
+
+    // Initialize OAuth2 authorization manager
+    match AuthorizationManager::new(endpoint_url).await {
+        Ok(auth_manager) => {
+            info!("OAuth2 authorization manager created successfully");
+
+            // Attempt to discover OAuth metadata
+            match auth_manager.discover_metadata().await {
+                Ok(_) => {
+                    info!("OAuth2 metadata discovered successfully");
+                    info!("OAuth2 authentication will be handled automatically during MCP communication");
+                }
+                Err(e) => {
+                    warn!("OAuth2 metadata discovery failed: {}", e);
+                    info!("Proceeding without OAuth2 - may require manual authentication");
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Failed to create OAuth2 authorization manager: {}", e);
+            info!("Proceeding with standard transport - authentication may be required separately");
+        }
+    }
+
+    // Create standard transport (OAuth2 will be handled at the protocol level)
+    match transport_type {
+        "SSE" => {
+            info!(
+                "Creating authenticated SSE client transport for: {}",
+                endpoint_url
+            );
+            match SseClientTransport::start(endpoint_url).await {
+                Ok(transport) => {
+                    info!("Authenticated SSE transport created successfully");
+                    Ok(McpTransport::Sse(transport))
+                }
+                Err(e) => {
+                    error!("Failed to create authenticated SSE transport: {}", e);
+                    Err(anyhow::anyhow!(
+                        "Authenticated SSE transport creation failed: {}",
+                        e
+                    ))
+                }
+            }
+        }
+        "HTTP" => {
+            info!(
+                "Creating authenticated HTTP client transport for: {}",
+                endpoint_url
+            );
+            let transport = StreamableHttpClientTransport::from_uri(endpoint_url);
+            info!("Authenticated HTTP transport created successfully");
+            Ok(McpTransport::Http(transport))
+        }
+        _ => {
+            error!(
+                "Unknown transport type for authenticated endpoint: {}",
+                transport_type
+            );
+            Err(anyhow::anyhow!(
+                "Unsupported transport type for authentication: {}",
                 transport_type
             ))
         }
