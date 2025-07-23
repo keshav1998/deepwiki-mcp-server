@@ -37,12 +37,12 @@ fi
 print_status "Cleaning previous builds..."
 cargo clean
 
-# Build the bridge binary first (native)
-print_status "Building native bridge binary..."
+# Build the minimal proxy binary first (native)
+print_status "Building minimal rust-sdk proxy binary..."
 if cargo build --release --manifest-path crates/bridge/Cargo.toml; then
-    print_status "✅ Bridge binary built successfully"
+    print_status "✅ Proxy binary built successfully"
 else
-    print_error "❌ Failed to build bridge binary"
+    print_error "❌ Failed to build proxy binary"
     exit 1
 fi
 
@@ -59,11 +59,11 @@ fi
 print_status "Creating distribution package..."
 mkdir -p dist/bin
 
-# Copy the bridge binary
+# Copy the proxy binary
 cp target/release/deepwiki-mcp-bridge dist/bin/
 
 # Copy the extension WASM
-cp target/wasm32-wasip1/release/libdeepwiki_mcp_server_extension.wasm dist/
+cp target/wasm32-wasip1/release/deepwiki_mcp_server_extension.wasm dist/
 
 # Copy configuration files
 cp extension.toml dist/
@@ -76,8 +76,8 @@ cp LICENSE dist/ 2>/dev/null || echo "LICENSE not found, skipping"
 print_status "📦 Distribution package created in 'dist/' directory"
 echo
 echo "Contents:"
-echo "  - dist/bin/deepwiki-mcp-bridge (native binary)"
-echo "  - dist/libdeepwiki_mcp_server_extension.wasm (Zed extension)"
+echo "  - dist/bin/deepwiki-mcp-bridge (minimal rust-sdk proxy)"
+echo "  - dist/deepwiki_mcp_server_extension.wasm (Zed extension)"
 echo "  - dist/extension.toml (extension manifest)"
 echo "  - dist/configuration/ (extension configuration)"
 echo
@@ -85,6 +85,6 @@ echo
 print_status "🎉 Build completed successfully!"
 echo
 echo "Next steps:"
-echo "  1. Install the bridge binary: cp dist/bin/deepwiki-mcp-bridge ~/.local/bin/"
+echo "  1. Install the proxy binary: cp dist/bin/deepwiki-mcp-bridge ~/.local/bin/"
 echo "  2. Install the extension in Zed extensions directory"
 echo "  3. Or use: zed --install-extension ./dist"
