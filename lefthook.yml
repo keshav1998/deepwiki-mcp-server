@@ -11,7 +11,7 @@ pre-commit:
     # 🎨 Code formatting check
     fmt:
       run: cargo fmt --all --check
-      glob: ["./crates/", "./.github/"]
+      glob: ["./crates/**/*", "./.github/**/*"]
       fail_text: |
         ❌ Code formatting failed!
         💡 Run 'cargo fmt' to fix formatting issues
