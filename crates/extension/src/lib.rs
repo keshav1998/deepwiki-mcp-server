@@ -115,9 +115,7 @@ impl DeepWikiMcpExtension {
         }
 
         // Create bin directory if it doesn't exist
-        if fs::create_dir_all("bin").is_err() {
-            return Err("Failed to create bin directory".into());
-        }
+        fs::create_dir_all("bin").map_err(|e| format!("Failed to create bin directory: {}", e))?;
 
         // Download the binary from GitHub releases
         Self::download_bridge_binary(&binary_path)?;
