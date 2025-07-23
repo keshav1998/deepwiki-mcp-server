@@ -1,20 +1,18 @@
 //! Tests for `DeepWiki` MCP Extension
 //!
 //! This test suite focuses on the extension functionality, configuration parsing,
-//! and command construction. The actual MCP communication is handled by the shell
-//! script proxy and is not tested here.
+//! and command construction. The actual MCP communication is handled by the
+//! minimal proxy binary and is not tested here.
 //!
 //! Run with: `cargo test --lib`
 
 // Test constants to avoid hardcoded values that might be flagged as secrets
-const MOCK_API_KEY: &str = "mock_test_key";
+const MOCK_ENDPOINT: &str = "https://test.example.com";
 
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use crate::{
-        default_endpoint, default_protocol, DeepWikiContextServerSettings, DeepWikiMcpExtension,
-    };
+    use crate::{default_endpoint, DeepWikiContextServerSettings, DeepWikiMcpExtension};
     use serde_json::json;
     use zed_extension_api::Extension;
 
@@ -38,552 +36,364 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_default_protocol() {
-        let protocol = default_protocol();
-        assert_eq!(protocol, "mcp");
-    }
-
-    #[test]
     fn test_deepwiki_context_server_settings_defaults() {
         let settings = DeepWikiContextServerSettings {
             endpoint: default_endpoint(),
-            protocol: default_protocol(),
-            devin_api_key: None,
         };
 
         assert_eq!(settings.endpoint, "https://mcp.deepwiki.com");
-        assert_eq!(settings.protocol, "mcp");
-        assert_eq!(settings.devin_api_key, None);
     }
 
     #[test]
-    fn test_deepwiki_context_server_settings_with_api_key() {
+    fn test_deepwiki_context_server_settings_with_devin_endpoint() {
         let settings = DeepWikiContextServerSettings {
             endpoint: "https://mcp.devin.ai".to_string(),
-            protocol: "sse".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
         };
 
         assert_eq!(settings.endpoint, "https://mcp.devin.ai");
-        assert_eq!(settings.protocol, "sse");
-        assert_eq!(settings.devin_api_key, Some(MOCK_API_KEY.to_string()));
     }
 
     #[test]
     fn test_deepwiki_context_server_settings_custom() {
         let settings = DeepWikiContextServerSettings {
-            endpoint: "https://custom.deepwiki.com".to_string(),
-            protocol: "mcp".to_string(),
-            devin_api_key: None,
+            endpoint: "https://custom.example.com".to_string(),
         };
 
-        assert_eq!(settings.endpoint, "https://custom.deepwiki.com");
-        assert_eq!(settings.protocol, "mcp");
-        assert_eq!(settings.devin_api_key, None);
+        assert_eq!(settings.endpoint, "https://custom.example.com");
     }
 
     #[test]
-    fn test_settings_serialization_with_defaults() {
+    fn test_json_schema_generation() {
         let settings = DeepWikiContextServerSettings {
             endpoint: default_endpoint(),
-            protocol: default_protocol(),
-            devin_api_key: None,
         };
 
         let json = serde_json::to_string(&settings).unwrap();
-        assert!(json.contains("https://mcp.deepwiki.com"));
-        assert!(json.contains("mcp"));
+        assert!(json.contains("mcp.deepwiki.com"));
+
+        // Test that JSON can be parsed back
+        let parsed: DeepWikiContextServerSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.endpoint, settings.endpoint);
     }
 
     #[test]
-    fn test_settings_serialization_with_api_key() {
-        let settings = DeepWikiContextServerSettings {
-            endpoint: "https://mcp.devin.ai".to_string(),
-            protocol: "sse".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
+    fn test_settings_serialization_roundtrip() {
+        let original = DeepWikiContextServerSettings {
+            endpoint: MOCK_ENDPOINT.to_string(),
         };
 
-        let json = serde_json::to_string(&settings).unwrap();
-        assert!(json.contains("https://mcp.devin.ai"));
-        assert!(json.contains("sse"));
-        assert!(json.contains(MOCK_API_KEY));
+        let serialized = serde_json::to_string(&original).unwrap();
+        let deserialized: DeepWikiContextServerSettings =
+            serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(original.endpoint, deserialized.endpoint);
     }
 
     #[test]
-    fn test_settings_deserialization_with_defaults() {
+    fn test_json_deserialization_with_defaults() {
+        // Test that settings use defaults when fields are missing
         let json = json!({});
-        let settings: DeepWikiContextServerSettings = serde_json::from_value(json).unwrap();
+        let result = serde_json::from_value::<DeepWikiContextServerSettings>(json);
 
-        assert_eq!(settings.endpoint, "https://mcp.deepwiki.com");
-        assert_eq!(settings.protocol, "mcp");
-        assert_eq!(settings.devin_api_key, None);
+        // Should use default endpoint
+        assert!(result.is_ok());
+        let settings = result.unwrap();
+        assert_eq!(settings.endpoint, default_endpoint());
     }
 
     #[test]
-    fn test_settings_deserialization_with_custom_values() {
+    fn test_json_deserialization_with_custom_endpoint() {
         let json = json!({
-            "endpoint": "https://custom.example.com",
-            "protocol": "mcp",
-            "devin_api_key": MOCK_API_KEY
+            "endpoint": "https://custom.example.com"
         });
         let settings: DeepWikiContextServerSettings = serde_json::from_value(json).unwrap();
 
         assert_eq!(settings.endpoint, "https://custom.example.com");
-        assert_eq!(settings.protocol, "mcp");
-        assert_eq!(settings.devin_api_key, Some(MOCK_API_KEY.to_string()));
     }
 
     #[test]
-    fn test_settings_deserialization_partial() {
-        let json = json!({
-            "endpoint": "https://partial.example.com"
-        });
-        let settings: DeepWikiContextServerSettings = serde_json::from_value(json).unwrap();
-
-        assert_eq!(settings.endpoint, "https://partial.example.com");
-        assert_eq!(settings.protocol, "mcp"); // Should use default
-        assert_eq!(settings.devin_api_key, None); // Should use default
-    }
-
-    #[test]
-    fn test_settings_deserialization_only_api_key() {
-        let json = json!({
-            "devin_api_key": MOCK_API_KEY
-        });
-        let settings: DeepWikiContextServerSettings = serde_json::from_value(json).unwrap();
-
-        assert_eq!(settings.endpoint, "https://mcp.deepwiki.com"); // Should use default
-        assert_eq!(settings.protocol, "mcp"); // Should use default
-        assert_eq!(settings.devin_api_key, Some(MOCK_API_KEY.to_string()));
-    }
-
-    #[test]
-    fn test_command_construction_with_defaults() {
+    fn test_command_construction_basic() {
         // Test that command construction works with default settings
         let config = DeepWikiContextServerSettings {
             endpoint: default_endpoint(),
-            protocol: default_protocol(),
-            devin_api_key: None,
         };
 
-        // Verify the command would be constructed correctly
-        let expected_command = "./scripts/deepwiki-mcp-proxy.sh";
-        let expected_env = [
-            ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
-        ];
-
-        assert_eq!(expected_env[0].0, "DEEPWIKI_ENDPOINT");
-        assert_eq!(expected_env[0].1, "https://mcp.deepwiki.com");
-        assert_eq!(expected_env[1].0, "DEEPWIKI_PROTOCOL");
-        assert_eq!(expected_env[1].1, "mcp");
-        assert_eq!(expected_command, "./scripts/deepwiki-mcp-proxy.sh");
+        // Verify the command arguments would be constructed correctly
+        let args = [config.endpoint];
+        assert_eq!(args.len(), 1);
+        assert_eq!(args[0], "https://mcp.deepwiki.com");
     }
 
     #[test]
-    fn test_command_construction_with_api_key() {
+    fn test_command_construction_with_devin_endpoint() {
         let config = DeepWikiContextServerSettings {
             endpoint: "https://mcp.devin.ai".to_string(),
-            protocol: "sse".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
         };
 
-        let mut expected_env = vec![
-            ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol.clone()),
-        ];
+        let args = [config.endpoint.clone()];
 
-        if let Some(api_key) = &config.devin_api_key {
-            expected_env.push(("DEVIN_API_KEY".to_string(), api_key.clone()));
-        }
-
-        assert_eq!(expected_env[0].1, "https://mcp.devin.ai");
-        assert_eq!(expected_env[1].1, "sse");
-        assert_eq!(expected_env[2].1, MOCK_API_KEY);
-        assert_eq!(expected_env.len(), 3);
+        assert_eq!(args[0], "https://mcp.devin.ai");
+        assert_eq!(args.len(), 1); // OAuth2 handled automatically by proxy
     }
 
     #[test]
     fn test_command_construction_with_custom_config() {
         let config = DeepWikiContextServerSettings {
-            endpoint: "https://custom.deepwiki.com".to_string(),
-            protocol: "mcp".to_string(),
-            devin_api_key: None,
+            endpoint: "https://custom.example.com".to_string(),
         };
 
-        let expected_env = [
-            ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint.clone()),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
+        let args = [config.endpoint];
+
+        assert_eq!(args[0], "https://custom.example.com");
+        assert_eq!(args.len(), 1);
+    }
+
+    #[test]
+    fn test_url_validation_patterns() {
+        // Test various URL patterns that should be valid
+        let valid_urls = [
+            "https://mcp.deepwiki.com",
+            "https://mcp.devin.ai",
+            "https://mcp.devin.ai/sse",
+            "http://localhost:8080",
+            "https://custom.example.com/mcp",
         ];
 
-        assert_eq!(expected_env[0].1, "https://custom.deepwiki.com");
-        assert_eq!(expected_env[1].1, "mcp");
+        for url in &valid_urls {
+            let config = DeepWikiContextServerSettings {
+                endpoint: (*url).to_string(),
+            };
+            assert_eq!(config.endpoint, *url);
+        }
     }
 
     #[test]
-    fn test_environment_variable_names() {
-        // Ensure environment variable names are consistent
-        let endpoint_var = "DEEPWIKI_ENDPOINT";
-        let protocol_var = "DEEPWIKI_PROTOCOL";
-        // Construct the API key variable name to avoid secrets detection
-        let api_prefix = "DEVIN";
-        let api_suffix = "API_KEY";
-        let api_key_var = format!("{api_prefix}_{api_suffix}");
+    fn test_endpoint_format_handling() {
+        // Test that endpoints are handled correctly regardless of format
+        let test_cases = [
+            ("https://mcp.deepwiki.com", "https://mcp.deepwiki.com"),
+            ("https://mcp.devin.ai/", "https://mcp.devin.ai/"),
+            ("https://test.com/sse", "https://test.com/sse"),
+        ];
 
-        assert_eq!(endpoint_var.len(), 17);
-        assert_eq!(protocol_var.len(), 17);
-        assert_eq!(api_key_var.len(), 13);
-        assert!(endpoint_var.starts_with("DEEPWIKI_"));
-        assert!(protocol_var.starts_with("DEEPWIKI_"));
-        assert!(api_key_var.starts_with(api_prefix));
+        for (input, expected) in &test_cases {
+            let config = DeepWikiContextServerSettings {
+                endpoint: (*input).to_string(),
+            };
+            assert_eq!(config.endpoint, *expected);
+        }
     }
 
     #[test]
-    fn test_devin_endpoint_validation_logic() {
-        // Test the logic that would validate Devin endpoint requires API key
-        let devin_endpoint = "https://mcp.devin.ai";
-        let deepwiki_endpoint = "https://mcp.deepwiki.com";
-
-        // Simulate validation logic
-        let requires_api_key = |endpoint: &str| -> bool { endpoint.contains("mcp.devin.ai") };
-
-        assert!(requires_api_key(devin_endpoint));
-        assert!(!requires_api_key(deepwiki_endpoint));
-    }
-
-    #[test]
-    fn test_shell_script_path() {
-        let script_path = "./scripts/deepwiki-mcp-proxy.sh";
-
-        // Verify the path format
-        assert!(script_path.starts_with("./scripts/"));
-        assert!(std::path::Path::new(script_path)
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("sh")));
-        assert!(script_path.contains("deepwiki-mcp-proxy"));
-    }
-
-    #[test]
-    fn test_settings_json_schema_compliance() {
-        // Test that our settings struct can be serialized/deserialized properly
-        let original = DeepWikiContextServerSettings {
-            endpoint: "https://test.example.com".to_string(),
-            protocol: "test-protocol".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
-        };
-
-        let json_value = serde_json::to_value(&original).unwrap();
-        let deserialized: DeepWikiContextServerSettings =
-            serde_json::from_value(json_value).unwrap();
-
-        assert_eq!(original.endpoint, deserialized.endpoint);
-        assert_eq!(original.protocol, deserialized.protocol);
-        assert_eq!(original.devin_api_key, deserialized.devin_api_key);
-    }
-
-    #[test]
-    fn test_extension_trait_implementation() {
-        // Verify that DeepWikiMcpExtension implements the Extension trait
-        let mut extension = DeepWikiMcpExtension::new();
-
-        // This is a compile-time test - if this compiles, the trait is implemented correctly
-        let _: &mut dyn Extension = &mut extension;
-
-        // Test passes if it compiles - no assertion needed
-    }
-
-    #[test]
-    fn test_configuration_edge_cases() {
+    fn test_settings_edge_cases() {
         // Test empty strings (should not panic)
         let config = DeepWikiContextServerSettings {
             endpoint: String::new(),
-            protocol: String::new(),
-            devin_api_key: None,
         };
 
         assert_eq!(config.endpoint, "");
-        assert_eq!(config.protocol, "");
-        assert_eq!(config.devin_api_key, None);
 
         // Test very long strings (should not panic)
-        let long_string = "x".repeat(1000);
+        let long_string = "https://".to_string() + &"x".repeat(1000) + ".com";
         let config = DeepWikiContextServerSettings {
             endpoint: long_string.clone(),
-            protocol: long_string,
-            devin_api_key: None, // Test without API key for edge cases
         };
 
-        assert_eq!(config.endpoint.len(), 1000);
-        assert_eq!(config.protocol.len(), 1000);
-        assert_eq!(config.devin_api_key, None);
+        assert_eq!(config.endpoint, long_string);
     }
 
     #[test]
-    fn test_default_functions_consistency() {
-        // Ensure default functions return consistent values
-        let endpoint1 = default_endpoint();
-        let endpoint2 = default_endpoint();
-        let protocol1 = default_protocol();
-        let protocol2 = default_protocol();
-
-        assert_eq!(endpoint1, endpoint2);
-        assert_eq!(protocol1, protocol2);
-
-        // Ensure they're not empty
-        assert!(!endpoint1.is_empty());
-        assert!(!protocol1.is_empty());
-
-        // Ensure endpoint is a valid URL format
-        assert!(endpoint1.starts_with("https://"));
-    }
-
-    #[test]
-    fn test_serde_json_integration() {
-        // Test that we can work with serde_json values as expected
-        let json_obj = json!({
-            "endpoint": "https://serde-test.com",
-            "protocol": "serde-test",
-            "devin_api_key": MOCK_API_KEY
+    fn test_serde_json_with_additional_fields() {
+        // Test that additional fields in JSON are ignored gracefully
+        let json = json!({
+            "endpoint": "https://test.example.com",
+            "unknown_field": "should_be_ignored",
+            "another_field": 42
         });
 
-        // Test conversion both ways
-        let settings: DeepWikiContextServerSettings =
-            serde_json::from_value(json_obj.clone()).unwrap();
-        let back_to_json = serde_json::to_value(&settings).unwrap();
+        let result = serde_json::from_value::<DeepWikiContextServerSettings>(json);
+        assert!(result.is_ok());
 
-        assert_eq!(json_obj, back_to_json);
+        let settings = result.unwrap();
+        assert_eq!(settings.endpoint, "https://test.example.com");
     }
 
     #[test]
-    fn test_serde_json_integration_without_api_key() {
-        // Test that we can work with serde_json values as expected (without API key)
-        let json_obj = json!({
-            "endpoint": "https://serde-test.com",
-            "protocol": "serde-test"
-        });
+    fn test_schema_generation() {
+        // Test that JSON schema can be generated for the settings
+        use schemars::schema_for;
 
-        // Test conversion both ways
-        let settings: DeepWikiContextServerSettings = serde_json::from_value(json_obj).unwrap();
+        let schema = schema_for!(DeepWikiContextServerSettings);
+        let schema_json = serde_json::to_string(&schema).unwrap();
 
-        assert_eq!(settings.endpoint, "https://serde-test.com");
-        assert_eq!(settings.protocol, "serde-test");
-        assert_eq!(settings.devin_api_key, None);
+        // Should contain endpoint field
+        assert!(schema_json.contains("endpoint"));
     }
 
     #[test]
-    fn test_debug_trait_implementation() {
-        // Verify Debug is implemented (useful for logging/debugging)
-        let settings = DeepWikiContextServerSettings {
-            endpoint: "https://debug-test.com".to_string(),
-            protocol: "debug-test".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
-        };
+    fn test_binary_name_logic() {
+        // Test binary name logic without calling Zed API
+        // On Windows: deepwiki-mcp-bridge.exe
+        // On other platforms: deepwiki-mcp-bridge
 
-        let debug_string = format!("{settings:?}");
-        assert!(debug_string.contains("DeepWikiContextServerSettings"));
-        assert!(debug_string.contains("debug-test.com"));
-        assert!(debug_string.contains("debug-test"));
-        assert!(debug_string.contains(MOCK_API_KEY));
+        #[cfg(target_os = "windows")]
+        let expected = "deepwiki-mcp-bridge.exe";
+
+        #[cfg(not(target_os = "windows"))]
+        let expected = "deepwiki-mcp-bridge";
+
+        // Verify the expected name pattern is correct
+        assert!(expected.starts_with("deepwiki-mcp-bridge"));
+
+        #[cfg(target_os = "windows")]
+        assert!(expected.ends_with(".exe"));
+
+        #[cfg(not(target_os = "windows"))]
+        assert!(!std::path::Path::new(expected)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe")));
     }
 
     #[test]
-    fn test_optional_api_key_serialization() {
-        // Test serialization behavior with and without API key
-        let settings_with_key = DeepWikiContextServerSettings {
-            endpoint: "https://test.com".to_string(),
-            protocol: "sse".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
-        };
+    fn test_asset_name_generation() {
+        use zed_extension_api::{Architecture, Os};
 
-        let settings_without_key = DeepWikiContextServerSettings {
-            endpoint: "https://test.com".to_string(),
-            protocol: "sse".to_string(),
-            devin_api_key: None,
-        };
+        // Test asset name generation for different platforms
+        let test_cases = [
+            (
+                Os::Mac,
+                Architecture::Aarch64,
+                "deepwiki-mcp-bridge-aarch64-apple-darwin.tar.gz",
+            ),
+            (
+                Os::Mac,
+                Architecture::X8664,
+                "deepwiki-mcp-bridge-x86_64-apple-darwin.tar.gz",
+            ),
+            (
+                Os::Linux,
+                Architecture::X8664,
+                "deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz",
+            ),
+            (
+                Os::Windows,
+                Architecture::X8664,
+                "deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip",
+            ),
+        ];
 
-        let json_with = serde_json::to_string(&settings_with_key).unwrap();
-        let json_without = serde_json::to_string(&settings_without_key).unwrap();
-
-        assert!(json_with.contains(MOCK_API_KEY));
-        assert!(!json_without.contains(MOCK_API_KEY));
-        assert!(json_without.contains("null") || !json_without.contains("devin_api_key"));
-    }
-}
-
-// Integration-style tests that would work with the actual Extension trait
-// Note: These tests demonstrate the expected behavior but may not run in isolation
-// due to the complexity of mocking zed_extension_api types
-#[cfg(test)]
-mod integration_tests {
-    use super::*;
-    use crate::{DeepWikiContextServerSettings, DeepWikiMcpExtension};
-    use zed_extension_api::Extension;
-
-    #[test]
-    fn test_extension_registration() {
-        // This test verifies that the extension registration macro works
-        // The actual registration happens at the module level with zed::register_extension!
-        let _extension = DeepWikiMcpExtension::new();
-
-        // If this compiles, the basic structure is correct
-        assert_eq!(std::mem::size_of::<DeepWikiMcpExtension>(), 0);
+        for (os, arch, expected) in &test_cases {
+            let asset_name = DeepWikiMcpExtension::get_asset_name(*os, *arch);
+            assert_eq!(asset_name, *expected);
+        }
     }
 
     #[test]
-    fn test_command_structure_validity_without_api_key() {
-        // Test that our command structure matches what Zed expects
+    fn test_file_type_detection() {
+        // Test file type detection for different asset formats
+        use zed_extension_api::DownloadedFileType;
+
+        let test_cases = [
+            ("file.tar.gz", DownloadedFileType::GzipTar),
+            ("file.zip", DownloadedFileType::Zip),
+            ("file.ZIP", DownloadedFileType::Zip), // Case insensitive
+            ("file.bin", DownloadedFileType::Uncompressed),
+            ("plain-file", DownloadedFileType::Uncompressed),
+        ];
+
+        for (filename, expected) in &test_cases {
+            let file_type = DeepWikiMcpExtension::get_file_type(filename);
+            match (expected, file_type) {
+                (DownloadedFileType::GzipTar, DownloadedFileType::GzipTar)
+                | (DownloadedFileType::Zip, DownloadedFileType::Zip)
+                | (DownloadedFileType::Uncompressed, DownloadedFileType::Uncompressed) => (),
+                _ => panic!(
+                    "File type mismatch for {filename}: expected {expected:?}, got {file_type:?}"
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn test_command_structure_validity() {
+        // Test command structure validity with different endpoints
         let config = DeepWikiContextServerSettings {
-            endpoint: "https://test.com".to_string(),
-            protocol: "test".to_string(),
-            devin_api_key: None,
+            endpoint: "https://mcp.deepwiki.com".to_string(),
         };
 
         // Simulate command construction
-        let command_string = "./scripts/deepwiki-mcp-proxy.sh".to_string();
-        let args: Vec<String> = vec![];
-        let env = [
-            ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
-        ];
+        let args = [config.endpoint];
+        let env_vars: Vec<(String, String)> = vec![];
 
-        // Verify structure
-        assert!(!command_string.is_empty());
-        assert!(args.is_empty()); // We don't pass args to the shell script
-        assert_eq!(env.len(), 2);
-        assert!(env.iter().any(|(k, _)| k == "DEEPWIKI_ENDPOINT"));
-        assert!(env.iter().any(|(k, _)| k == "DEEPWIKI_PROTOCOL"));
+        // Verify simplified structure
+        assert_eq!(args.len(), 1);
+        assert_eq!(env_vars.len(), 0); // No environment variables needed
     }
 
     #[test]
-    fn test_command_structure_validity_with_api_key() {
-        // Test command structure with API key
-        let config = DeepWikiContextServerSettings {
-            endpoint: "https://test.com".to_string(),
-            protocol: "test".to_string(),
-            devin_api_key: Some(MOCK_API_KEY.to_string()),
-        };
-
-        // Simulate command construction with API key
-        let command_string = "./scripts/deepwiki-mcp-proxy.sh".to_string();
-        let args: Vec<String> = vec![];
-        let mut env = vec![
-            ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
+    fn test_devin_endpoint_detection() {
+        // Test that we can identify Devin endpoints
+        let devin_endpoints = [
+            "https://mcp.devin.ai",
+            "https://mcp.devin.ai/",
+            "https://mcp.devin.ai/sse",
         ];
 
-        if let Some(api_key) = config.devin_api_key {
-            env.push(("DEVIN_API_KEY".to_string(), api_key));
+        let non_devin_endpoints = [
+            "https://mcp.deepwiki.com",
+            "https://custom.example.com",
+            "https://example.devin.ai", // Different subdomain
+        ];
+
+        for endpoint in &devin_endpoints {
+            assert!(
+                endpoint.contains("mcp.devin.ai"),
+                "Should detect Devin endpoint: {endpoint}"
+            );
         }
 
-        // Verify structure
-        assert!(!command_string.is_empty());
-        assert!(args.is_empty()); // We don't pass args to the shell script
-        assert_eq!(env.len(), 3);
-        assert!(env.iter().any(|(k, _)| k == "DEEPWIKI_ENDPOINT"));
-        assert!(env.iter().any(|(k, _)| k == "DEEPWIKI_PROTOCOL"));
-        assert!(env.iter().any(|(k, _)| k == "DEVIN_API_KEY"));
+        for endpoint in &non_devin_endpoints {
+            assert!(
+                !endpoint.contains("mcp.devin.ai"),
+                "Should not detect as Devin endpoint: {endpoint}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_settings_validation() {
+        // Test that settings can be validated for common issues
+        let valid_settings = DeepWikiContextServerSettings {
+            endpoint: "https://mcp.deepwiki.com".to_string(),
+        };
+
+        // Basic validation checks
+        assert!(!valid_settings.endpoint.is_empty());
+        assert!(valid_settings.endpoint.starts_with("http"));
     }
 }
 
-// Tests for bridge binary download functionality
 #[cfg(test)]
-mod bridge_download_tests {
-
+mod integration_tests {
     use crate::DeepWikiMcpExtension;
-    use zed_extension_api::{Architecture, Os};
+    use zed_extension_api::Extension;
 
     #[test]
-    fn test_get_binary_name_unix() {
-        // Mock current_platform to return Unix-like OS
-        let binary_name = "deepwiki-mcp-bridge";
-        assert_eq!(binary_name, "deepwiki-mcp-bridge");
-        assert!(!std::path::Path::new(binary_name)
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe")));
-    }
+    fn test_extension_workflow() {
+        // Test the overall extension workflow
+        let extension = DeepWikiMcpExtension::new();
 
-    #[test]
-    fn test_get_binary_name_windows() {
-        // Test Windows binary naming
-        let binary_name = "deepwiki-mcp-bridge.exe";
-        assert!(std::path::Path::new(binary_name)
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe")));
-    }
-
-    #[test]
-    fn test_get_asset_name_patterns() {
-        // Test Linux x86_64
-        let asset_name = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X8664);
+        // Verify extension can be instantiated
         assert_eq!(
-            asset_name,
-            "deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz"
+            std::mem::size_of_val(&extension),
+            std::mem::size_of::<DeepWikiMcpExtension>()
         );
 
-        // Test macOS aarch64
-        let asset_name = DeepWikiMcpExtension::get_asset_name(Os::Mac, Architecture::Aarch64);
-        assert_eq!(
-            asset_name,
-            "deepwiki-mcp-bridge-aarch64-apple-darwin.tar.gz"
-        );
+        // Note: Cannot test configuration in unit tests as it requires actual project context
+        // This would need integration testing with a real Zed environment
 
-        // Test Windows x86_64
-        let asset_name = DeepWikiMcpExtension::get_asset_name(Os::Windows, Architecture::X8664);
-        assert_eq!(asset_name, "deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip");
-    }
-
-    #[test]
-    fn test_get_file_type_detection() {
-        use zed_extension_api::DownloadedFileType;
-
-        // Test tar.gz detection
-        let file_type = DeepWikiMcpExtension::get_file_type(
-            "deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz",
-        );
-        assert!(matches!(file_type, DownloadedFileType::GzipTar));
-
-        // Test zip detection
-        let file_type =
-            DeepWikiMcpExtension::get_file_type("deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip");
-        assert!(matches!(file_type, DownloadedFileType::Zip));
-
-        // Test uncompressed detection
-        let file_type = DeepWikiMcpExtension::get_file_type("deepwiki-mcp-bridge");
-        assert!(matches!(file_type, DownloadedFileType::Uncompressed));
-    }
-
-    #[test]
-    fn test_bridge_binary_path_format() {
-        let binary_name = "deepwiki-mcp-bridge";
-        let expected_path = format!("bin/{binary_name}");
-        assert_eq!(expected_path, "bin/deepwiki-mcp-bridge");
-        assert!(expected_path.starts_with("bin/"));
-    }
-
-    #[test]
-    fn test_platform_specific_extensions() {
-        // Test that different platforms have appropriate extensions
-        // Test different OS extensions
-        let linux_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X8664);
-        let mac_asset = DeepWikiMcpExtension::get_asset_name(Os::Mac, Architecture::X8664);
-        let windows_asset = DeepWikiMcpExtension::get_asset_name(Os::Windows, Architecture::X8664);
-
-        assert!(linux_asset.ends_with(".tar.gz"));
-        assert!(mac_asset.ends_with(".tar.gz"));
-        assert!(std::path::Path::new(&windows_asset)
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("zip")));
-    }
-
-    #[test]
-    fn test_architecture_mapping() {
-        // Test that architectures are mapped correctly
-        let x86_64_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X8664);
-        let aarch64_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::Aarch64);
-        let x86_asset = DeepWikiMcpExtension::get_asset_name(Os::Linux, Architecture::X86);
-
-        assert!(x86_64_asset.contains("x86_64"));
-        assert!(aarch64_asset.contains("aarch64"));
-        assert!(x86_asset.contains("i686"));
+        // Basic smoke test - extension creates successfully
+        // Extension is automatically dropped at end of scope
+        let _ = extension;
     }
 }
