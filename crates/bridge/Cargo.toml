@@ -15,6 +15,7 @@ path = "src/main.rs"
 # Official Rust MCP SDK
 rmcp = { version = "0.2.0", features = [
     "client",
+    "server",
     "transport-io",
     "transport-streamable-http-client",
     "transport-sse-client",
