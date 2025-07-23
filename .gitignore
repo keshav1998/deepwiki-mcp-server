@@ -3,7 +3,7 @@
 **/*.rs.bk
 **/target/
 debug/
-Cargo.lock
+
 
 # Platform
 .DS_Store
@@ -39,3 +39,6 @@ venv/
 # Ignore plan.rules everywhere
 *.rules
 extension.wasm
+
+rust-sdk/
+mcp-proxy/

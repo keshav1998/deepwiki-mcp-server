@@ -11,7 +11,7 @@ pre-commit:
     # 🎨 Code formatting check
     fmt:
       run: cargo fmt --all --check
-      glob: "*"
+      glob: ["./crates/**/*", "./.github/**/*"]
       fail_text: |
         ❌ Code formatting failed!
         💡 Run 'cargo fmt' to fix formatting issues
@@ -19,7 +19,7 @@ pre-commit:
     # 🔧 Linting with strict warnings
     clippy:
       run: cargo clippy --all-targets --all-features -- -D warnings
-      glob: "*"
+      glob: ["./crates/*"]
       fail_text: |
         ❌ Clippy linting failed!
         💡 Fix the clippy warnings above before committing
@@ -27,7 +27,7 @@ pre-commit:
     # ✅ Compilation check
     check:
       run: cargo check --all-targets --all-features
-      glob: "*"
+      glob: ["./crates/*"]
       fail_text: |
         ❌ Compilation check failed!
         💡 Fix the compilation errors above
@@ -35,7 +35,7 @@ pre-commit:
     # 🧪 Test execution
     test:
       run: cargo test --all-targets --all-features
-      glob: "*"
+      glob: ["./crates/*"]
       fail_text: |
         ❌ Tests failed!
         💡 Fix failing tests before committing
@@ -61,7 +61,7 @@ pre-commit:
             python3 -c "import tomllib; tomllib.load(open('$file', 'rb'))" || exit 1
           fi
         done
-      glob: "*.{yml,yaml,toml}"
+      glob: ["./.github/*.{yml,yaml,toml}", "./crates/*.{yml,yaml,toml}"]
       fail_text: |
         ❌ Configuration file validation failed!
         💡 Check YAML/TOML syntax in the files above
@@ -73,7 +73,11 @@ pre-commit:
           echo "❌ Trailing whitespace found in files above!"
           exit 1
         fi
-      glob: "*.{rs,yml,yaml,toml,md,sh}"
+      glob:
+        [
+          "./.github/*.{rs,yml,yaml,toml,md,sh}",
+          "./crates/*.{rs,yml,yaml,toml,md,sh}",
+        ]
       fail_text: |
         ❌ Trailing whitespace detected!
         💡 Remove trailing whitespace from the files listed above
@@ -88,7 +92,7 @@ pre-commit:
           echo "💡 Remove hardcoded credentials and use environment variables"
           exit 1
         fi
-      glob: "*.{rs,toml,yml,yaml}"
+      glob: ["./.github/*.{rs,toml,yml,yaml}", "./crates/*.{rs,toml,yml,yaml}"]
       fail_text: |
         ❌ Potential secrets detected!
         💡 Remove hardcoded credentials from the files above
@@ -96,7 +100,7 @@ pre-commit:
     # 📦 Cargo.toml validation
     cargo-check:
       run: cargo metadata --format-version 1 > /dev/null
-      glob: "Cargo.toml"
+      glob: "./Cargo.toml"
       fail_text: |
         ❌ Cargo.toml validation failed!
         💡 Check Cargo.toml syntax and dependencies
@@ -108,6 +112,7 @@ pre-push:
     # 🔍 Full workspace validation
     workspace-check:
       run: cargo check --workspace --all-targets --all-features
+      glob: ["./crates/**/*"]
       fail_text: |
         ❌ Full workspace check failed!
         💡 Fix compilation errors before pushing
@@ -115,6 +120,8 @@ pre-push:
     # 🧪 Complete test suite
     full-test:
       run: cargo test --workspace --all-targets --all-features --verbose
+      glob:
+        - "./crates/**/*"
       fail_text: |
         ❌ Full test suite failed!
         💡 All tests must pass before pushing
@@ -122,6 +129,7 @@ pre-push:
     # 📚 Documentation check
     doc-check:
       run: cargo doc --no-deps --all-features --document-private-items
+      glob: ["./crates/**/*", "./.github/**/*"]
       fail_text: |
         ❌ Documentation generation failed!
         💡 Fix documentation errors and missing docs
@@ -129,6 +137,7 @@ pre-push:
     # 🔧 Clippy pedantic mode for thorough analysis
     clippy-pedantic:
       run: cargo clippy --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+      glob: ["./crates/**/*", "./.github/**/*"]
       fail_text: |
         ❌ Pedantic clippy check failed!
         💡 Address additional clippy suggestions for code quality
