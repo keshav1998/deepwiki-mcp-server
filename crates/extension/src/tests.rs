@@ -130,7 +130,7 @@ mod unit_tests {
             endpoint: "https://mcp.devin.ai".to_string(),
         };
 
-        let args = [config.endpoint.clone()];
+        let args = [config.endpoint];
 
         assert_eq!(args[0], "https://mcp.devin.ai");
         assert_eq!(args.len(), 1); // OAuth2 handled automatically by proxy

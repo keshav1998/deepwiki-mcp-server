@@ -105,7 +105,7 @@ impl zed::Extension for DeepWikiMcpExtension {
 impl DeepWikiMcpExtension {
     /// Ensure the bridge binary is available, downloading it if necessary
     #[allow(clippy::unused_self)]
-    fn ensure_bridge_binary(&mut self) -> Result<String> {
+    fn ensure_bridge_binary(&self) -> Result<String> {
         let binary_name = Self::get_binary_name();
         let binary_path = format!("bin/{binary_name}");
 
