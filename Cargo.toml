@@ -17,4 +17,4 @@ serde_json = "1.0"
 schemars = { version = "0.8", features = ["derive"] }
 
 [workspace]
-members = ["crates/bridge"]
+members = []
