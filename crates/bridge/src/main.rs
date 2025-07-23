@@ -189,7 +189,7 @@ async fn proxy_messages_dual(
                     }
                 }
             }
-            _ = tokio::time::sleep(shutdown_timeout) => {
+            () = tokio::time::sleep(shutdown_timeout) => {
                 warn!("Shutdown timeout reached, forcing termination");
                 ct_clone.cancel();
             }
@@ -202,7 +202,7 @@ async fn proxy_messages_dual(
         let mut health_check_interval = tokio::time::interval(std::time::Duration::from_secs(30));
         loop {
             tokio::select! {
-                _ = health_check_ct.cancelled() => {
+                () = health_check_ct.cancelled() => {
                     info!("Connection health monitoring stopped");
                     break;
                 }
@@ -224,23 +224,23 @@ async fn proxy_messages_dual(
     loop {
         tokio::select! {
             // Handle shutdown signal with timeout
-            _ = ct.cancelled() => {
+            () = ct.cancelled() => {
                 info!("Graceful shutdown initiated");
                 break;
             }
 
             // Operation timeout handling
-            _ = tokio::time::sleep(operation_timeout), if start_time.elapsed() > operation_timeout => {
+            () = tokio::time::sleep(operation_timeout), if start_time.elapsed() > operation_timeout => {
                 warn!("Operation timeout reached, initiating graceful shutdown");
                 ct.cancel();
                 break;
             }
 
             // STDIO -> Remote message forwarding with error handling
-            _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
+            () = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
                 message_count += 1;
-                match forward_stdio_to_remote_demo(message_count).await {
-                    Ok(_) => {
+                match forward_stdio_to_remote_demo(message_count) {
+                    Ok(()) => {
                         info!("STDIO -> Remote forwarding active (demo message {})", message_count);
                         if message_count >= 3 {
                             info!("Demo completed - bidirectional forwarding structure verified");
@@ -255,16 +255,9 @@ async fn proxy_messages_dual(
             }
 
             // Remote -> STDIO message forwarding with error handling
-            _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
-                match forward_remote_to_stdio_demo().await {
-                    Ok(_) => {
-                        info!("Remote -> STDIO forwarding active (ready to receive)");
-                    }
-                    Err(e) => {
-                        error!("Remote -> STDIO forwarding error: {}", e);
-                        // Continue operation, don't crash on single message failure
-                    }
-                }
+            () = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
+                forward_remote_to_stdio_demo();
+                info!("Remote -> STDIO forwarding active (ready to receive)");
             }
         }
     }
@@ -280,9 +273,10 @@ async fn proxy_messages_dual(
     })
     .await;
 
-    match cleanup_result {
-        Ok(_) => info!("Client connections cleaned up successfully"),
-        Err(_) => warn!("Cleanup timeout reached, forcing connection termination"),
+    if let Ok(()) = cleanup_result {
+        info!("Client connections cleaned up successfully");
+    } else {
+        warn!("Cleanup timeout reached, forcing connection termination");
     }
 
     info!("Proxy shutdown completed successfully");
@@ -290,7 +284,7 @@ async fn proxy_messages_dual(
 }
 
 // Helper functions for message forwarding with error handling
-async fn forward_stdio_to_remote_demo(count: i32) -> Result<()> {
+fn forward_stdio_to_remote_demo(count: i32) -> Result<()> {
     // Simulate potential forwarding errors
     if count == 2 {
         return Err(anyhow::anyhow!("Simulated forwarding error"));
@@ -298,9 +292,8 @@ async fn forward_stdio_to_remote_demo(count: i32) -> Result<()> {
     Ok(())
 }
 
-async fn forward_remote_to_stdio_demo() -> Result<()> {
+fn forward_remote_to_stdio_demo() {
     // Simulate remote message processing
-    Ok(())
 }
 
 /// Demonstrate message forwarding structure with remote client only
@@ -334,23 +327,23 @@ async fn proxy_messages_demo(remote_client: impl std::fmt::Debug + Send + 'stati
     loop {
         tokio::select! {
             // Handle shutdown signal
-            _ = ct.cancelled() => {
+            () = ct.cancelled() => {
                 info!("Graceful shutdown initiated");
                 break;
             }
 
             // Demo timeout handling
-            _ = tokio::time::sleep(demo_timeout) => {
+            () = tokio::time::sleep(demo_timeout) => {
                 warn!("Demo timeout reached, completing demonstration");
                 ct.cancel();
                 break;
             }
 
             // Demonstrate STDIO message handling with error recovery
-            _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
+            () = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
                 demo_count += 1;
-                match forward_stdio_to_remote_demo(demo_count).await {
-                    Ok(_) => {
+                match forward_stdio_to_remote_demo(demo_count) {
+                    Ok(()) => {
                         info!("Demo: STDIO message received -> would forward to remote ({})", demo_count);
                         if demo_count >= 3 {
                             info!("Forwarding structure demonstration completed");
@@ -364,15 +357,9 @@ async fn proxy_messages_demo(remote_client: impl std::fmt::Debug + Send + 'stati
             }
 
             // Demonstrate remote message handling with error recovery
-            _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-                match forward_remote_to_stdio_demo().await {
-                    Ok(_) => {
-                        info!("Demo: Remote message ready -> would forward to STDIO");
-                    }
-                    Err(e) => {
-                        warn!("Demo: Remote forwarding error: {} (continuing)", e);
-                    }
-                }
+            () = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
+                forward_remote_to_stdio_demo();
+                info!("Demo: Remote message ready -> would forward to STDIO");
             }
         }
     }
@@ -387,9 +374,10 @@ async fn proxy_messages_demo(remote_client: impl std::fmt::Debug + Send + 'stati
     })
     .await;
 
-    match cleanup_result {
-        Ok(_) => info!("Remote client connection cleaned up successfully"),
-        Err(_) => warn!("Demo cleanup timeout reached, forcing termination"),
+    if let Ok(()) = cleanup_result {
+        info!("Remote client connection cleaned up successfully");
+    } else {
+        warn!("Demo cleanup timeout reached, forcing termination");
     }
 
     info!("Demo proxy shutdown completed successfully");
@@ -544,13 +532,13 @@ mod integration_tests {
     async fn test_endpoint_connection_integration() {
         // Test real endpoint connection
         let result = timeout(Duration::from_secs(10), async {
-            test_connection_to_endpoint("https://mcp.deepwiki.com/mcp").await
+            test_connection_to_endpoint("https://mcp.deepwiki.com/mcp")
         })
         .await;
 
         match result {
-            Ok(Ok(_)) => println!("✅ Integration test: DeepWiki endpoint connection successful"),
-            Ok(Err(e)) => println!("⚠️ Integration test: DeepWiki endpoint error: {}", e),
+            Ok(Ok(())) => println!("✅ Integration test: DeepWiki endpoint connection successful"),
+            Ok(Err(e)) => println!("⚠️ Integration test: DeepWiki endpoint error: {e}"),
             Err(_) => println!("⚠️ Integration test: Connection timeout"),
         }
     }
@@ -570,14 +558,14 @@ mod integration_tests {
         let invalid_endpoint = "https://nonexistent-domain-12345.invalid";
 
         let result = timeout(Duration::from_secs(5), async {
-            test_connection_to_endpoint(invalid_endpoint).await
+            test_connection_to_endpoint(invalid_endpoint)
         })
         .await;
 
         // Should handle errors gracefully without panic
         match result {
             Ok(Err(_)) => println!("✅ Integration test: Connection failure handled gracefully"),
-            Ok(Ok(_)) => println!("⚠️ Integration test: Unexpected success with invalid endpoint"),
+            Ok(Ok(())) => println!("⚠️ Integration test: Unexpected success with invalid endpoint"),
             Err(_) => println!("✅ Integration test: Connection timeout handled properly"),
         }
     }
@@ -585,16 +573,15 @@ mod integration_tests {
     #[tokio::test]
     async fn test_message_forwarding_structure() {
         // Test the forwarding demo functions for error handling
-        let result1 = forward_stdio_to_remote_demo(1).await;
-        let result2 = forward_stdio_to_remote_demo(2).await; // Should error
-        let result3 = forward_remote_to_stdio_demo().await;
+        let result1 = forward_stdio_to_remote_demo(1);
+        let result2 = forward_stdio_to_remote_demo(2); // Should error
+        forward_remote_to_stdio_demo();
 
         assert!(result1.is_ok(), "First demo message should succeed");
         assert!(
             result2.is_err(),
             "Second demo message should simulate error"
         );
-        assert!(result3.is_ok(), "Remote to STDIO demo should succeed");
         println!("✅ Integration test: Message forwarding error handling verified");
     }
 
@@ -614,10 +601,10 @@ mod integration_tests {
         let main_task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    _ = ct.cancelled() => {
+                    () = ct.cancelled() => {
                         break;
                     }
-                    _ = tokio::time::sleep(Duration::from_millis(10)) => {
+                    () = tokio::time::sleep(Duration::from_millis(10)) => {
                         // Simulate work
                     }
                 }
@@ -639,15 +626,11 @@ mod integration_tests {
         let invalid_urls = ["mcp.deepwiki.com", "ftp://example.com", "not-a-url"];
 
         for url in &valid_urls {
-            assert!(validate_url(url).is_ok(), "Valid URL should pass: {}", url);
+            assert!(validate_url(url).is_ok(), "Valid URL should pass: {url}");
         }
 
         for url in &invalid_urls {
-            assert!(
-                validate_url(url).is_err(),
-                "Invalid URL should fail: {}",
-                url
-            );
+            assert!(validate_url(url).is_err(), "Invalid URL should fail: {url}");
         }
 
         println!("✅ Integration test: URL validation comprehensive check passed");
@@ -659,8 +642,8 @@ mod integration_tests {
         let iterations = 100;
 
         for i in 0..iterations {
-            let _ = forward_stdio_to_remote_demo(1).await;
-            let _ = forward_remote_to_stdio_demo().await;
+            let _ = forward_stdio_to_remote_demo(1);
+            forward_remote_to_stdio_demo();
 
             if i % 20 == 0 {
                 tokio::task::yield_now().await; // Yield control periodically
@@ -668,10 +651,7 @@ mod integration_tests {
         }
 
         let duration = start.elapsed();
-        println!(
-            "✅ Integration test: {} iterations completed in {:?}",
-            iterations, duration
-        );
+        println!("✅ Integration test: {iterations} iterations completed in {duration:?}");
 
         // Simple performance check - should complete quickly
         assert!(
@@ -681,13 +661,13 @@ mod integration_tests {
     }
 
     // Helper function for endpoint connection testing
-    async fn test_connection_to_endpoint(endpoint: &str) -> Result<()> {
+    fn test_connection_to_endpoint(endpoint: &str) -> Result<()> {
         // Validate URL first
         validate_url(endpoint)?;
 
         // Test transport detection
         let transport_type = detect_transport_type(endpoint);
-        println!("Transport type detected: {}", transport_type);
+        println!("Transport type detected: {transport_type}");
 
         // For integration testing, we'll just validate the setup
         // without actually connecting to avoid external dependencies
