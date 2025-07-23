@@ -1,5 +1,5 @@
-# Lefthook configuration for modern Rust development
-# Runs formatting, linting, and testing on commit with parallel execution
+# Lefthook configuration for DeepWiki MCP Server Extension
+# Optimized for WASM-based Zed extension development
 
 pre-commit:
   parallel: true
@@ -9,43 +9,73 @@ pre-commit:
       run: cargo fmt --check
       stage_fixed: true
 
-    clippy-workspace:
-      glob: "**/*.rs"
-      run: cargo clippy --workspace --all-targets -- -D warnings
-
     clippy-wasm:
-      glob: "src/**/*.rs"
+      glob: "**/*.rs"
       run: cargo clippy --target wasm32-wasip1 -- -D warnings
 
-    test-workspace:
+    test:
       glob: "**/*.rs"
-      run: cargo test --workspace
+      run: cargo test
 
     extension-manifest:
       glob: "extension.toml"
       run: echo "✓ Extension manifest updated"
 
+    wasm-check:
+      glob: "src/**/*.rs"
+      run: cargo check --target wasm32-wasip1
+
 pre-push:
   parallel: true
   commands:
-    build-extension:
+    build-extension-release:
       glob: "src/**/*.rs"
       run: cargo build --target wasm32-wasip1 --release
 
-    build-bridge:
-      glob: "crates/bridge/**/*.rs"
-      run: cargo build --manifest-path crates/bridge/Cargo.toml --release
-
     comprehensive-test:
-      run: cargo test --workspace --all-features
+      run: cargo test --all-features
 
-# commit-msg validation temporarily disabled
-# commit-msg:
-#   commands:
-#     conventional-commits:
-#       run: echo "Commit message validation passed"
+    extension-validation:
+      glob: "extension.toml"
+      run: |
+        echo "Validating extension configuration..."
+        if [ -f extension.toml ]; then
+          echo "✓ extension.toml exists"
+        else
+          echo "✗ extension.toml missing"
+          exit 1
+        fi
+
+    documentation-check:
+      glob: "{README.md,BUILD.md}"
+      run: |
+        echo "Checking documentation consistency..."
+        if grep -q "zed-mcp-proxy" README.md && grep -q "wasm32-wasip1" BUILD.md; then
+          echo "✓ Documentation up to date"
+        else
+          echo "⚠ Documentation may need updates"
+        fi
 
 # Skip hooks for specific scenarios
 skip_output:
   - meta
   - summary
+
+# Configuration for different environments
+staging:
+  pre-commit:
+    parallel: true
+    commands:
+      quick-check:
+        run: cargo check --target wasm32-wasip1
+
+production:
+  pre-commit:
+    parallel: true
+    commands:
+      full-validation:
+        run: |
+          cargo fmt --check &&
+          cargo clippy --target wasm32-wasip1 -- -D warnings &&
+          cargo test &&
+          cargo build --target wasm32-wasip1 --release

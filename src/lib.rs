@@ -228,3 +228,4 @@ impl DeepWikiMcpExtension {
 mod tests;
 
 zed::register_extension!(DeepWikiMcpExtension);
+// Test comment for hook validation
