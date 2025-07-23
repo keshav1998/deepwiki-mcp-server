@@ -86,7 +86,13 @@ enum McpTransport {
 
 /// Run the MCP proxy with transport auto-detection and authentication
 async fn run_proxy(endpoint_url: &str) -> Result<()> {
-    // Check if endpoint requires authentication
+    let needs_auth = detect_authentication_requirement(endpoint_url);
+    let remote_transport = create_transport(endpoint_url, needs_auth).await?;
+    let remote_client = establish_remote_connection(remote_transport).await?;
+    handle_stdio_connection_and_proxy(remote_client).await
+}
+
+fn detect_authentication_requirement(endpoint_url: &str) -> bool {
     let needs_auth = endpoint_url.contains("mcp.devin.ai");
 
     if needs_auth {
@@ -95,22 +101,25 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
         info!("DeepWiki endpoint detected - no authentication required");
     }
 
-    // Detect and create transport based on URL pattern
-    let remote_transport = create_transport(endpoint_url, needs_auth).await?;
+    needs_auth
+}
 
-    // Create client info template for MCP connections
-    let create_client_info = || ClientInfo {
+fn create_client_info() -> ClientInfo {
+    ClientInfo {
         protocol_version: rmcp::model::ProtocolVersion::default(),
         capabilities: ClientCapabilities::default(),
         client_info: Implementation {
             name: "DeepWiki MCP Proxy".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
-    };
+    }
+}
 
+async fn establish_remote_connection(
+    remote_transport: McpTransport,
+) -> Result<impl std::fmt::Debug + Send + 'static> {
     info!("Creating MCP client with remote transport...");
 
-    // Test the connection by creating a client (simplified approach)
     let remote_client = match remote_transport {
         McpTransport::Http(transport) => {
             info!("Testing HTTP connection to MCP server");
@@ -133,13 +142,16 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
     };
 
     info!("Remote transport connection verified successfully");
+    Ok(remote_client)
+}
 
-    // Create STDIO transport for Zed communication
+async fn handle_stdio_connection_and_proxy(
+    remote_client: impl std::fmt::Debug + Send + 'static,
+) -> Result<()> {
     info!("Creating STDIO transport for Zed communication...");
     let stdio_transport = stdio();
     info!("STDIO transport created successfully");
 
-    // Create STDIO client connection using a separate client info instance
     info!("Establishing STDIO client connection...");
     let stdio_client_result = create_client_info().serve(stdio_transport).await;
 
@@ -147,16 +159,12 @@ async fn run_proxy(endpoint_url: &str) -> Result<()> {
         Ok(stdio_client) => {
             info!("STDIO client connection established successfully");
             info!("Both STDIO and remote transport connections established");
-
-            // Implement bidirectional message proxying with both clients
             info!("Starting bidirectional message proxying...");
             proxy_messages_dual(stdio_client, remote_client).await
         }
         Err(e) => {
             error!("STDIO client connection failed: {}", e);
             info!("Demonstrating message forwarding structure with remote client only");
-
-            // Demonstrate the forwarding loop structure even without STDIO
             proxy_messages_demo(remote_client).await
         }
     }
@@ -273,7 +281,7 @@ async fn proxy_messages_dual(
     })
     .await;
 
-    if let Ok(()) = cleanup_result {
+    if cleanup_result == Ok(()) {
         info!("Client connections cleaned up successfully");
     } else {
         warn!("Cleanup timeout reached, forcing connection termination");
@@ -292,7 +300,7 @@ fn forward_stdio_to_remote_demo(count: i32) -> Result<()> {
     Ok(())
 }
 
-fn forward_remote_to_stdio_demo() {
+const fn forward_remote_to_stdio_demo() {
     // Simulate remote message processing
 }
 
@@ -374,7 +382,7 @@ async fn proxy_messages_demo(remote_client: impl std::fmt::Debug + Send + 'stati
     })
     .await;
 
-    if let Ok(()) = cleanup_result {
+    if cleanup_result == Ok(()) {
         info!("Remote client connection cleaned up successfully");
     } else {
         warn!("Demo cleanup timeout reached, forcing termination");
