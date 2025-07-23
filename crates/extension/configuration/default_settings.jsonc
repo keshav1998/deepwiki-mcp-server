@@ -3,14 +3,9 @@
 
   // Endpoint URL - choose one:
   // - "https://mcp.deepwiki.com" for free public repositories only
-  // - "https://mcp.devin.ai" for authenticated access to public and private repositories
+  // - "https://mcp.devin.ai" for authenticated access (OAuth2 handled automatically)
   "endpoint": "https://mcp.deepwiki.com",
 
-  // Wire protocol to use (sse or mcp)
-  "protocol": "mcp",
-
-  // Optional: Devin API key for authenticated access to private repositories
-  // Required when using "https://mcp.devin.ai" endpoint
-  // Get your API key from https://devin.ai account settings
-  // "devin_api_key": "YOUR_DEVIN_API_KEY"
+  // Note: Transport type (HTTP/SSE) is auto-detected based on URL patterns
+  // Note: Authentication for Devin endpoints is handled automatically via OAuth2
 }

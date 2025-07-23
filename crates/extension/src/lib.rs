@@ -14,26 +14,13 @@ struct DeepWikiMcpExtension;
 struct DeepWikiContextServerSettings {
     /// `DeepWiki` MCP server endpoint
     /// - <https://mcp.deepwiki.com> for free public repositories only
-    /// - <https://mcp.devin.ai> for authenticated access to public and private repositories
+    /// - <https://mcp.devin.ai> for authenticated access (`OAuth2` handled automatically)
     #[serde(default = "default_endpoint")]
     endpoint: String,
-
-    /// Wire protocol to use (sse or mcp)
-    #[serde(default = "default_protocol")]
-    protocol: String,
-
-    /// Optional Devin API key for authenticated access to private repositories
-    /// Required when using <https://mcp.devin.ai> endpoint
-    #[serde(default)]
-    devin_api_key: Option<String>,
 }
 
 fn default_endpoint() -> String {
     "https://mcp.deepwiki.com".to_string()
-}
-
-fn default_protocol() -> String {
-    "mcp".to_string()
 }
 
 impl zed::Extension for DeepWikiMcpExtension {
@@ -56,40 +43,22 @@ impl zed::Extension for DeepWikiMcpExtension {
         let config = settings.settings.map_or_else(
             || DeepWikiContextServerSettings {
                 endpoint: default_endpoint(),
-                protocol: default_protocol(),
-                devin_api_key: None,
             },
             |settings_value| {
                 serde_json::from_value(settings_value).unwrap_or_else(|_| {
                     DeepWikiContextServerSettings {
                         endpoint: default_endpoint(),
-                        protocol: default_protocol(),
-                        devin_api_key: None,
                     }
                 })
             },
         );
 
-        // Validate configuration
-        if config.endpoint.contains("mcp.devin.ai") && config.devin_api_key.is_none() {
-            return Err("devin_api_key is required when using the authenticated Devin endpoint (https://mcp.devin.ai)".into());
-        }
-
-        // Build environment variables - API key is handled securely via Command.env
-        let mut env_vars = vec![
-            ("DEEPWIKI_ENDPOINT".to_string(), config.endpoint),
-            ("DEEPWIKI_PROTOCOL".to_string(), config.protocol),
-        ];
-
-        // Add API key if provided (sensitive data handled by Command.env)
-        if let Some(api_key) = config.devin_api_key {
-            env_vars.push(("DEVIN_API_KEY".to_string(), api_key));
-        }
-
+        // Use new minimal proxy with endpoint URL as argument
+        // OAuth2 authentication is handled automatically by the proxy
         Ok(Command {
             command: bridge_path,
-            args: vec![],
-            env: env_vars,
+            args: vec![config.endpoint],
+            env: vec![],
         })
     }
 
@@ -117,17 +86,6 @@ impl zed::Extension for DeepWikiMcpExtension {
                         "\"https://mcp.deepwiki.com\"",
                         &format!("\"{}\"", deepwiki_settings.endpoint),
                     );
-
-                    // Update protocol
-                    default_settings = default_settings
-                        .replace("\"sse\"", &format!("\"{}\"", deepwiki_settings.protocol));
-
-                    // Update API key if provided
-                    if let Some(api_key) = deepwiki_settings.devin_api_key {
-                        default_settings = default_settings
-                            .replace("// \"devin_api_key\"", "\"devin_api_key\"")
-                            .replace("\"YOUR_DEVIN_API_KEY\"", &format!("\"{api_key}\""));
-                    }
                 }
             }
         }
