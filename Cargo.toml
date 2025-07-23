@@ -1,22 +1,20 @@
-[workspace]
-members = ["crates/extension", "crates/bridge"]
-resolver = "2"
-
-[workspace.package]
+[package]
+name = "deepwiki-mcp-server"
 version = "0.1.0"
 edition = "2021"
 authors = ["Keshav Mishra <me@kmsh.dev>"]
 repository = "https://github.com/keshav1998/deepwiki-mcp-server"
 license = "MIT"
 
-[workspace.lints.rust]
-unsafe_code = "forbid"
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
 
-[workspace.lints.clippy]
-# Enable pedantic clippy checks
-pedantic = { level = "warn", priority = -1 }
-# Specific lint configurations
-module_name_repetitions = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-must_use_candidate = "allow"
+[dependencies]
+zed_extension_api = "0.6.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = { version = "0.8", features = ["derive"] }
+
+[workspace]
+members = ["crates/bridge"]
