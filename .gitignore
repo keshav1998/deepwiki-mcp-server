@@ -42,3 +42,9 @@ extension.wasm
 
 rust-sdk/
 mcp-proxy/
+
+# Temporary extraction directories
+temp-bridge-extraction/
+
+# Binary directory for downloaded binaries
+bin/

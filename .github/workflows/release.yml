@@ -1,9 +1,9 @@
-name: Release
+name: Release Extension
 
 on:
   push:
     tags:
-      - "v*"
+      - "extension-v*"
   workflow_dispatch:
 
 env:
@@ -11,34 +11,9 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  build:
-    name: Build Bridge Binary
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary_name: deepwiki-mcp-bridge
-            archive_ext: tar.gz
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            binary_name: deepwiki-mcp-bridge
-            archive_ext: tar.gz
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            binary_name: deepwiki-mcp-bridge
-            archive_ext: tar.gz
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            binary_name: deepwiki-mcp-bridge
-            archive_ext: tar.gz
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary_name: deepwiki-mcp-bridge.exe
-            archive_ext: zip
-
+  validate-extension:
+    name: Validate Extension
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,143 +21,80 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: wasm32-wasip1
+          components: clippy, rustfmt
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ matrix.target }}
+          key: extension-wasm32-wasip1
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --target wasm32-wasip1 --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo nextest run --all-features
+
+      - name: Build extension (WASM)
+        run: cargo build --target wasm32-wasip1 --release
+
+      - name: Validate extension configuration
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "✅ Validating extension.toml..."
+          if [ ! -f "extension.toml" ]; then
+            echo "❌ extension.toml not found!"
+            exit 1
+          fi
 
-      - name: Setup cross compilation (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          # Extract and validate version
+          EXTENSION_VERSION=$(grep -E '^version = ' extension.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION=${GITHUB_REF#refs/tags/extension-v}
 
-      - name: Build bridge binary
-        run: |
-          cargo build --release --manifest-path crates/bridge/Cargo.toml --target ${{ matrix.target }} --locked
+          if [ "$EXTENSION_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Version mismatch: extension.toml has $EXTENSION_VERSION but tag is $TAG_VERSION"
+            exit 1
+          fi
 
-      - name: Prepare binary (Unix)
-        if: runner.os != 'Windows'
+          echo "✅ extension.toml version matches tag: $EXTENSION_VERSION"
+
+      - name: Package extension
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} dist/
-          chmod +x dist/${{ matrix.binary_name }}
 
-      - name: Prepare binary (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir dist
-          copy target\${{ matrix.target }}\release\${{ matrix.binary_name }} dist\
+          # Copy WASM binary
+          cp target/wasm32-wasip1/release/deepwiki_mcp_server.wasm dist/
 
-      - name: Create archive (Unix)
-        if: runner.os != 'Windows'
-        run: |
+          # Copy extension manifest
+          cp extension.toml dist/
+
+          # Copy configuration files
+          cp -r configuration dist/
+
+          # Copy documentation
+          cp README.md dist/
+          cp LICENSE dist/
+
+          # Create extension package
           cd dist
-          tar -czf ../deepwiki-mcp-bridge-${{ matrix.target }}.tar.gz ${{ matrix.binary_name }}
+          tar -czf ../deepwiki-mcp-server-extension.tar.gz .
 
-      - name: Create archive (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd dist
-          7z a ../deepwiki-mcp-bridge-${{ matrix.target }}.zip ${{ matrix.binary_name }}
+          echo "✅ Extension packaged successfully"
+          ls -la ../deepwiki-mcp-server-extension.tar.gz
 
-      - name: Upload artifact
+      - name: Upload extension artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deepwiki-mcp-bridge-${{ matrix.target }}
-          path: deepwiki-mcp-bridge-${{ matrix.target }}.*
+          name: deepwiki-mcp-server-extension
+          path: deepwiki-mcp-server-extension.tar.gz
 
-  release:
-    name: Create Release
-    needs: build
+  test-proxy-integration:
+    name: Test Proxy Integration
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -la artifacts/
-
-      - name: Prepare release assets
-        run: |
-          mkdir -p release-assets
-          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
-            cp "$file" release-assets/
-          done
-          ls -la release-assets/
-
-      - name: Get tag name
-        id: tag_name
-        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_OUTPUT
-          echo "## DeepWiki MCP Bridge ${{ steps.tag_name.outputs.TAG_NAME }}" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "### Features" >> $GITHUB_OUTPUT
-          echo "- HTTP to STDIO bridge for Zed MCP context servers" >> $GITHUB_OUTPUT
-          echo "- Support for DeepWiki and Devin AI services" >> $GITHUB_OUTPUT
-          echo "- Cross-platform binaries for Linux, macOS, and Windows" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "### Installation" >> $GITHUB_OUTPUT
-          echo "1. Download the appropriate binary for your platform" >> $GITHUB_OUTPUT
-          echo "2. Extract the archive" >> $GITHUB_OUTPUT
-          echo "3. Place the binary in your PATH or use with the Zed extension" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "### Platform Support" >> $GITHUB_OUTPUT
-          echo "- **Linux**: x86_64 and aarch64 (ARM64)" >> $GITHUB_OUTPUT
-          echo "- **macOS**: Intel (x86_64) and Apple Silicon (aarch64)" >> $GITHUB_OUTPUT
-          echo "- **Windows**: x86_64" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "### Usage" >> $GITHUB_OUTPUT
-          echo "This binary is automatically downloaded by the Zed extension, but can also be used standalone:" >> $GITHUB_OUTPUT
-          echo "\`\`\`bash" >> $GITHUB_OUTPUT
-          echo "./deepwiki-mcp-bridge" >> $GITHUB_OUTPUT
-          echo "\`\`\`" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "For more information, see the [README](https://github.com/keshav1998/deepwiki-mcp-server/blob/main/README.md)." >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
-          name: DeepWiki MCP Bridge ${{ steps.tag_name.outputs.TAG_NAME }}
-          body: ${{ steps.release_notes.outputs.RELEASE_BODY }}
-          files: |
-            release-assets/deepwiki-mcp-bridge-x86_64-unknown-linux-gnu.tar.gz
-            release-assets/deepwiki-mcp-bridge-aarch64-unknown-linux-gnu.tar.gz
-            release-assets/deepwiki-mcp-bridge-x86_64-apple-darwin.tar.gz
-            release-assets/deepwiki-mcp-bridge-aarch64-apple-darwin.tar.gz
-            release-assets/deepwiki-mcp-bridge-x86_64-pc-windows-msvc.zip
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  validate-extension:
-    name: Validate Zed Extension
-    runs-on: ubuntu-latest
-    needs: release
-
+    needs: validate-extension
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -194,19 +106,153 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
+
+      - name: Test proxy binary download
+        run: |
+          echo "🔍 Testing proxy binary download functionality..."
+
+          # Run integration tests that verify proxy download
+          cargo test test_proxy_binary_integration -- --nocapture
+
+          echo "✅ Proxy integration tests passed"
+
+      - name: Verify asset naming
+        run: |
+          echo "🔍 Verifying asset naming conventions..."
+
+          # Test asset name generation for all platforms
+          cargo test test_extension_proxy_compatibility -- --nocapture
+
+          echo "✅ Asset naming verification passed"
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [validate-extension, test-proxy-integration]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download extension artifact
+        uses: actions/download-artifact@v4
         with:
-          cache-on-failure: true
+          name: deepwiki-mcp-server-extension
 
-      - name: Build extension (WASM)
+      - name: Get tag and version info
+        id: tag_info
         run: |
-          echo "🌐 Building Zed extension for WASM..."
-          cargo build --manifest-path crates/extension/Cargo.toml --target wasm32-wasip1 --release --locked
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#extension-v}
 
-      - name: Validate extension configuration
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+          echo "📋 Release Info:"
+          echo "  Tag: $TAG_NAME"
+          echo "  Version: $VERSION"
+
+      - name: Generate release notes
+        id: release_notes
         run: |
-          echo "✅ Validating extension.toml..."
-          if [ ! -f "extension.toml" ]; then
-            echo "❌ extension.toml not found!"
-            exit 1
-          fi
-          echo "✅ extension.toml found"
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_OUTPUT
+          echo "# DeepWiki MCP Server Extension ${{ steps.tag_info.outputs.VERSION }}" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "A **Model Context Protocol (MCP) server extension** for the Zed IDE that provides seamless integration with DeepWiki and Devin AI documentation services." >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## 🚀 Features" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "- **Free DeepWiki Access**: Query public repository documentation" >> $GITHUB_OUTPUT
+          echo "- **Devin AI Integration**: Enhanced AI-powered documentation with API key" >> $GITHUB_OUTPUT
+          echo "- **Automatic Proxy Management**: Downloads platform-specific proxy binary automatically" >> $GITHUB_OUTPUT
+          echo "- **Type-Safe Configuration**: JSON schema validation for settings" >> $GITHUB_OUTPUT
+          echo "- **Cross-Platform**: Supports Linux, macOS, and Windows" >> $GITHUB_OUTPUT
+          echo "- **Separated Architecture**: WASM extension + native proxy for optimal performance" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## 📦 Installation" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Via Zed Extensions Registry (Recommended)" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "1. Open Zed" >> $GITHUB_OUTPUT
+          echo "2. Open Command Palette (\`Cmd/Ctrl+Shift+P\`)" >> $GITHUB_OUTPUT
+          echo "3. Type: \"zed: extensions\"" >> $GITHUB_OUTPUT
+          echo "4. Search for: \"DeepWiki MCP\"" >> $GITHUB_OUTPUT
+          echo "5. Click Install" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Manual Installation" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "1. Download \`deepwiki-mcp-server-extension.tar.gz\` from this release" >> $GITHUB_OUTPUT
+          echo "2. Extract the archive" >> $GITHUB_OUTPUT
+          echo "3. In Zed, use \"Extensions: Install Dev Extension\"" >> $GITHUB_OUTPUT
+          echo "4. Select the extracted directory" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## ⚙️ Configuration" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "Add to your Zed \`settings.json\`:" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "\`\`\`json" >> $GITHUB_OUTPUT
+          echo "{" >> $GITHUB_OUTPUT
+          echo "  \"context_servers\": {" >> $GITHUB_OUTPUT
+          echo "    \"deepwiki-mcp-server\": {" >> $GITHUB_OUTPUT
+          echo "      \"endpoint\": \"https://mcp.deepwiki.com\"" >> $GITHUB_OUTPUT
+          echo "    }" >> $GITHUB_OUTPUT
+          echo "  }" >> $GITHUB_OUTPUT
+          echo "}" >> $GITHUB_OUTPUT
+          echo "\`\`\`" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## 🔧 Proxy Binary" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "This extension automatically downloads the proxy binary from:" >> $GITHUB_OUTPUT
+          echo "[zed-mcp-proxy releases](https://github.com/keshav1998/zed-mcp-proxy/releases)" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## 📚 Documentation" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "- [README](https://github.com/keshav1998/deepwiki-mcp-server/blob/main/README.md)" >> $GITHUB_OUTPUT
+          echo "- [Configuration Guide](https://github.com/keshav1998/deepwiki-mcp-server/blob/main/docs/DOCS.md)" >> $GITHUB_OUTPUT
+          echo "- [Build Instructions](https://github.com/keshav1998/deepwiki-mcp-server/blob/main/docs/BUILD.md)" >> $GITHUB_OUTPUT
+          echo "- [Contributing](https://github.com/keshav1998/deepwiki-mcp-server/blob/main/CONTRIBUTING.md)" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## 🐛 Reporting Issues" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "Please report issues at: https://github.com/keshav1998/deepwiki-mcp-server/issues" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "---" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "**Built with ❤️ for the Zed community**" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_info.outputs.TAG_NAME }}
+          name: DeepWiki MCP Server Extension ${{ steps.tag_info.outputs.VERSION }}
+          body: ${{ steps.release_notes.outputs.RELEASE_BODY }}
+          files: |
+            deepwiki-mcp-server-extension.tar.gz
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-release:
+    name: Notify Release Completion
+    runs-on: ubuntu-latest
+    needs: create-release
+    steps:
+      - name: Release Summary
+        run: |
+          echo "🎉 Extension Release Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Release Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ needs.create-release.outputs.TAG_NAME || env.GITHUB_REF_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.create-release.outputs.VERSION || 'Latest' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Extension Package**: deepwiki-mcp-server-extension.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Extension is available for download from the release" >> $GITHUB_STEP_SUMMARY
+          echo "2. Users can install via Zed Extensions Registry" >> $GITHUB_STEP_SUMMARY
+          echo "3. Extension will automatically download proxy binary from zed-mcp-proxy repository" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Release automation completed successfully!"
