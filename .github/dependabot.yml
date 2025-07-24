@@ -1,0 +1,69 @@
+version: 2
+updates:
+  # Cargo dependencies for the main extension
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    target-branch: "main"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "rust"
+    reviewers:
+      - "keshav1998"
+    assignees:
+      - "keshav1998"
+    milestone: null
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    ignore:
+      # Ignore patch updates for stable dependencies
+      - dependency-name: "serde"
+        update-types: ["version-update:semver-patch"]
+      - dependency-name: "serde_json"
+        update-types: ["version-update:semver-patch"]
+    groups:
+      # Group serde ecosystem updates
+      serde:
+        patterns:
+          - "serde*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group Zed extension API updates
+      zed-api:
+        patterns:
+          - "zed_extension_api"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions workflow dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    target-branch: "main"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    reviewers:
+      - "keshav1998"
+    assignees:
+      - "keshav1998"
