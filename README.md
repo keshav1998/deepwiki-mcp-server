@@ -123,10 +123,18 @@ deepwiki-mcp-server/
 │   ├── lib.rs             # Extension implementation
 │   └── tests.rs           # Extension tests
 ├── configuration/         # UI configuration files
+├── docs/                  # Documentation files
+│   ├── BUILD.md           # Build instructions
+│   ├── DOCS.md            # Usage documentation
+│   ├── LEFTHOOK.md        # Git hooks documentation
+│   └── handoff-prompt.md  # Integration handoff documentation
+├── .config/               # Development configuration
+│   ├── deny.toml          # Dependency policy configuration
+│   ├── lefthook.yml       # Git hooks configuration
+│   └── release.toml       # Release automation configuration
+├── .github/               # GitHub integration files
 ├── extension.toml         # Zed extension manifest
-├── lefthook.yml          # Git hooks configuration
-├── BUILD.md              # Build instructions
-└── Cargo.toml            # Package configuration
+└── Cargo.toml             # Package configuration
 ```
 
 **Note**: The proxy binary is maintained in a separate repository: [zed-mcp-proxy](https://github.com/keshav1998/zed-mcp-proxy)
@@ -144,7 +152,7 @@ cargo build --target wasm32-wasip1
 cargo test
 ```
 
-See [BUILD.md](BUILD.md) for detailed build instructions and modern Rust development practices.
+See [BUILD.md](docs/BUILD.md) for detailed build instructions and modern Rust development practices.
 
 ### Code Quality
 
