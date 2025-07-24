@@ -69,7 +69,7 @@ lefthook version
 
 ## ⚙️ Configuration Overview
 
-Our `lefthook.yml` configures three types of hooks:
+Our `.config/lefthook.yml` configures three types of hooks:
 
 ### **Pre-commit Hooks** (Run on `git commit`)
 - 🎨 **fmt** - Code formatting check (`cargo fmt --check`)
@@ -180,15 +180,15 @@ lefthook run --help
 
 | Old System | New System | Benefits |
 |------------|------------|----------|
-| `.hooks/pre-commit` | `lefthook.yml` | YAML config, parallel execution |
+| `.hooks/pre-commit` | `.config/lefthook.yml` | YAML config, parallel execution |
 | `.hooks/install.sh` | `lefthook install` | Simpler installation |
-| `.pre-commit-config.yaml` | `lefthook.yml` | Single config file |
+| `.pre-commit-config.yaml` | `.config/lefthook.yml` | Single config file |
 | Sequential execution | Parallel execution | 2-3x faster |
 
 ### Migration Steps Completed
 
 1. ✅ **Installed lefthook** via Homebrew
-2. ✅ **Created `lefthook.yml`** with comprehensive hooks
+2. ✅ **Created `.config/lefthook.yml`** with comprehensive hooks
 3. ✅ **Tested configuration** with all Rust toolchain commands
 4. ✅ **Removed old systems** (`.hooks/`, `.pre-commit-config.yaml`)
 5. ✅ **Updated documentation** (this file)
@@ -329,7 +329,7 @@ git commit -m "chore(deps): upgrade zed-extension-api to 0.7.0"
 To modify hooks for your specific needs:
 
 ```yaml
-# lefthook.yml - Example customizations
+# .config/lefthook.yml - Example customizations
 
 pre-commit:
   commands:

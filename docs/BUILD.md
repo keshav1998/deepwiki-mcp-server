@@ -112,9 +112,16 @@ deepwiki-mcp-server/
 ├── configuration/          # Extension UI configuration
 │   ├── default_settings.jsonc
 │   └── installation_instructions.md
+├── docs/                  # Documentation files
+│   ├── BUILD.md           # Build instructions
+│   ├── DOCS.md            # Usage documentation
+│   └── LEFTHOOK.md        # Git hooks documentation
+├── .config/               # Development configuration
+│   ├── deny.toml          # Dependency policy configuration
+│   ├── lefthook.yml       # Git hooks configuration
+│   └── release.toml       # Release automation configuration
 ├── Cargo.toml             # Package configuration
-├── extension.toml         # Zed extension manifest
-└── lefthook.yml          # Git hooks configuration
+└── extension.toml         # Zed extension manifest
 ```
 
 ## Build Artifacts
