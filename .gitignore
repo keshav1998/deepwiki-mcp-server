@@ -45,4 +45,6 @@ mcp-proxy/
 
 # Temporary extraction directories
 temp-bridge-extraction/
-separation-plan.md
+
+# Binary directory for downloaded binaries
+bin/
