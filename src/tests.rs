@@ -406,10 +406,7 @@ mod integration_tests {
 
         // Skip test if proxy binary doesn't exist (CI environment)
         if !Path::new(proxy_path).exists() {
-            println!(
-                "Skipping proxy integration test - binary not found at {}",
-                proxy_path
-            );
+            println!("Skipping proxy integration test - binary not found at {proxy_path}");
             return;
         }
 
@@ -431,9 +428,8 @@ mod integration_tests {
         // Test 2: Verify proxy handles HTTP endpoint detection
         let output = Command::new("bash")
             .arg("-c")
-            .arg(&format!(
-                "echo '{{}}' | {} https://mcp.deepwiki.com 2>&1 | head -3",
-                proxy_path
+            .arg(format!(
+                "echo '{{}}' | {proxy_path} https://mcp.deepwiki.com 2>&1 | head -3"
             ))
             .output()
             .expect("Failed to test HTTP endpoint");
@@ -447,9 +443,8 @@ mod integration_tests {
         // Test 3: Verify proxy handles SSE endpoint detection
         let output = Command::new("bash")
             .arg("-c")
-            .arg(&format!(
-                "echo '{{}}' | {} https://example.com/sse 2>&1 | head -3",
-                proxy_path
+            .arg(format!(
+                "echo '{{}}' | {proxy_path} https://example.com/sse 2>&1 | head -3"
             ))
             .output()
             .expect("Failed to test SSE endpoint");
@@ -537,9 +532,8 @@ mod integration_tests {
 
         let output = Command::new("bash")
             .arg("-c")
-            .arg(&format!(
-                "echo '{}' | {} https://httpbin.org/status/404 2>&1 | head -5",
-                mcp_init_message, proxy_path
+            .arg(format!(
+                "echo '{mcp_init_message}' | {proxy_path} https://httpbin.org/status/404 2>&1 | head -5"
             ))
             .output()
             .expect("Failed to test MCP protocol");

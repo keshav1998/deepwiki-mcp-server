@@ -95,7 +95,7 @@ Extension Release ← depends on ← Proxy Release
    # Patch release (0.1.0 -> 0.1.1)
    cargo release patch
 
-   # Minor release (0.1.x -> 0.2.0)  
+   # Minor release (0.1.x -> 0.2.0)
    cargo release minor
 
    # Major release (0.x.y -> 1.0.0)

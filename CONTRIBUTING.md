@@ -191,10 +191,10 @@ mod tests {
     fn test_specific_functionality() {
         // Arrange
         let input = "test input";
-        
+
         // Act
         let result = function_under_test(input);
-        
+
         // Assert
         assert_eq!(result, expected_output);
     }

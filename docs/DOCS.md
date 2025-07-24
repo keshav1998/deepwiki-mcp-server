@@ -203,7 +203,7 @@ cargo test -- --nocapture
    ```bash
    # Install Rust toolchain
    rustup target add wasm32-wasip1
-   
+
    # Install development tools
    cargo install cargo-nextest
    cargo install lefthook
@@ -213,10 +213,10 @@ cargo test -- --nocapture
    ```bash
    # Format code
    cargo fmt --all
-   
+
    # Lint code
    cargo clippy --target wasm32-wasip1 -- -D warnings
-   
+
    # Run tests
    cargo nextest run
    ```

@@ -102,7 +102,7 @@ The proxy implements the full Model Context Protocol (v2024-11-05):
 
 The detailed communication flow between components works as follows:
 
-1. **User Request** 
+1. **User Request**
    - User submits a documentation query in Zed's assistant panel
    - Zed routes request to the extension via WASM interface
 
